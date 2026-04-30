@@ -766,7 +766,7 @@
     orientationBtn.addEventListener('click', () => {
       state.orientation = state.orientation === 'vertical' ? 'horizontal' : 'vertical';
       orientationBtn.textContent = `Orientation: ${capitalize(state.orientation)}`;
-      generateObject(false);
+      generateObject(false, false);
       stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.orientation)} ${state.mode}`;
     });
 
@@ -992,7 +992,16 @@
       return geometry;
     }
 
-    function generateObject(showLoading = true) {
+    function generateObject(showLoading = true, preserveRotation = true) {
+      // preserve current rotation before regenerating
+      let prevRotation = null;
+      if (state.mesh && preserveRotation) {
+        prevRotation = {
+          x: state.mesh.rotation.x,
+          y: state.mesh.rotation.y,
+          z: state.mesh.rotation.z
+        };
+      }
       if (showLoading) loading.style.display = 'grid';
       requestAnimationFrame(() => {
         if (state.mesh) scene.remove(state.mesh);
@@ -1001,7 +1010,8 @@
         const group = new THREE.Group();
         let bodyGeometry;
         if (state.mode === 'vase') {
-          bodyGeometry = state.audioBuffer ? vaseGeometry() : new THREE.CylinderGeometry(maxWidth * .72, maxWidth * .72, bodyHeight, 112, 1, true);
+          // Vase always uses the hollow vase mesh: open at the top, closed at the bottom.
+          bodyGeometry = vaseGeometry();
         } else {
           bodyGeometry = state.audioBuffer ? pendantGeometry() : new THREE.CylinderGeometry(maxWidth * .72, maxWidth * .72, bodyHeight, 96, 1);
         }
@@ -1011,6 +1021,14 @@
         scene.add(group);
         state.mesh = group;
         applyOrientation();
+
+        // Restore rotation so slider/crop changes do NOT reset the user's 360° preview angle.
+        // Orientation changes intentionally update Z, so only preserve Z during normal edits.
+        if (prevRotation) {
+          state.mesh.rotation.x = prevRotation.x;
+          state.mesh.rotation.y = prevRotation.y;
+          if (preserveRotation) state.mesh.rotation.z = prevRotation.z;
+        }
         state.stlText = groupToSTL(group, state.mode === 'pendant' ? 'voice_pendant' : 'voice_vase');
         downloadBtn.disabled = false;
         stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.mode)}`;
