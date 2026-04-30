@@ -65,6 +65,36 @@
       font-weight: 750;
     }
 
+    .menu {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 22px;
+      padding: 6px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.62);
+      border: 1px solid rgba(0,0,0,.06);
+    }
+
+    .menu-item {
+      min-height: 42px;
+      border: 0;
+      border-radius: 13px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 750;
+      text-align: left;
+      padding: 0 14px;
+      cursor: pointer;
+      transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+    }
+
+    .menu-item.active {
+      background: var(--panel-solid);
+      color: var(--text);
+      box-shadow: 0 8px 22px rgba(0,0,0,.07);
+    }
+
     .button {
       width: 100%;
       min-height: 50px;
@@ -267,7 +297,12 @@
 <body>
   <main class="app">
     <aside class="panel">
-      <h1>Create Pendant</h1>
+      <nav class="menu">
+        <button id="pendantModeBtn" class="menu-item active">Create pendant</button>
+        <button id="vaseModeBtn" class="menu-item">Create vase</button>
+      </nav>
+
+      <h1 id="modeTitle">Create Pendant</h1>
 
       <button id="startBtn" class="button"><span class="dot"></span>Start Recording</button>
       <button id="stopBtn" class="button subtle" disabled>Stop Recording</button>
@@ -301,6 +336,7 @@
       <button id="orientationBtn" class="button">Orientation: Vertical</button>
       <button id="generateBtn" class="button primary" disabled>Generate 3D Pendant</button>
       <button id="downloadBtn" class="button" disabled>Download STL</button>
+      <button id="resetBtn" class="button subtle">Reset</button>
 
       <div class="control">
         <label>Object height <span id="heightValue">70 mm body</span></label>
@@ -318,7 +354,12 @@
         <input id="detailSlider" type="range" min="24" max="128" value="64" />
       </div>
 
-      <p class="hint">Record your voice, drag across the waveform to choose the exact sound segment, then generate a single connected necklace-style pendant. The top loop stays fixed while only the pendant body changes height.</p>
+      <div class="control" id="thicknessControl" style="display:none;">
+        <label>Thickness <span id="thicknessValue">2.4 mm</span></label>
+        <input id="thicknessSlider" type="range" min="1.2" max="6" step="0.1" value="2.4" />
+      </div>
+
+      <p class="hint" id="modeHint">Record your voice, drag across the waveform to choose the exact sound segment, then generate a single connected necklace-style pendant. The top loop stays fixed while only the pendant body changes height.</p>
     </aside>
 
     <section class="stage">
@@ -354,18 +395,24 @@
       dragStartRatio: 0,
       mesh: null,
       stlText: '',
+      mode: 'pendant',
       orientation: 'vertical',
       isPointerRotating: false,
       lastPointerX: 0,
       lastPointerY: 0,
     };
 
+    const pendantModeBtn = $('pendantModeBtn');
+    const vaseModeBtn = $('vaseModeBtn');
+    const modeTitle = $('modeTitle');
+    const modeHint = $('modeHint');
     const startBtn = $('startBtn');
     const stopBtn = $('stopBtn');
     const playBtn = $('playBtn');
     const generateBtn = $('generateBtn');
     const orientationBtn = $('orientationBtn');
     const downloadBtn = $('downloadBtn');
+    const resetBtn = $('resetBtn');
     const timer = $('timer');
     const waveform = $('waveform');
     const waveCard = $('waveCard');
@@ -380,9 +427,12 @@
     const heightSlider = $('heightSlider');
     const widthSlider = $('widthSlider');
     const detailSlider = $('detailSlider');
+    const thicknessControl = $('thicknessControl');
+    const thicknessSlider = $('thicknessSlider');
     const heightValue = $('heightValue');
     const widthValue = $('widthValue');
     const detailValue = $('detailValue');
+    const thicknessValue = $('thicknessValue');
     const loading = $('loading');
     const stageBadge = $('stageBadge');
 
@@ -627,7 +677,7 @@
       state.cropStart = t;
       state.cropEnd = t;
       drawWaveform();
-      if (state.mesh) generatePendant(false);
+      if (state.mesh) generateObject(false);
     });
 
     waveform.addEventListener('pointermove', e => {
@@ -638,21 +688,21 @@
       state.cropStart = Math.max(0, a);
       state.cropEnd = Math.min(state.duration, Math.max(a + .1, b));
       drawWaveform();
-      if (state.mesh) generatePendant(false);
+      if (state.mesh) generateObject(false);
     });
 
     waveform.addEventListener('pointerup', () => {
       state.isDraggingCrop = false;
       if (state.cropEnd - state.cropStart < .1) state.cropEnd = Math.min(state.duration, state.cropStart + .5);
       drawWaveform();
-      if (state.mesh) generatePendant(false);
+      if (state.mesh) generateObject(false);
     });
 
     selectAllBtn.addEventListener('click', () => {
       state.cropStart = 0;
       state.cropEnd = state.duration;
       drawWaveform();
-      if (state.mesh) generatePendant(false);
+      if (state.mesh) generateObject(false);
     });
 
     startBtn.addEventListener('click', startRecording);
@@ -662,12 +712,14 @@
     heightSlider.addEventListener('input', updateLabelsAndPreview);
     widthSlider.addEventListener('input', updateLabelsAndPreview);
     detailSlider.addEventListener('input', updateLabelsAndPreview);
+    thicknessSlider.addEventListener('input', updateLabelsAndPreview);
 
     function updateLabelsAndPreview() {
       heightValue.textContent = `${heightSlider.value} mm body`;
       widthValue.textContent = `${widthSlider.value} mm`;
       detailValue.textContent = `${detailSlider.value} rings`;
-      if (state.mesh) generatePendant(false);
+      thicknessValue.textContent = `${Number(thicknessSlider.value).toFixed(1)} mm`;
+      if (state.mesh) generateObject(false);
     }
 
     const scene = new THREE.Scene();
@@ -714,8 +766,8 @@
     orientationBtn.addEventListener('click', () => {
       state.orientation = state.orientation === 'vertical' ? 'horizontal' : 'vertical';
       orientationBtn.textContent = `Orientation: ${capitalize(state.orientation)}`;
-      generatePendant(false);
-      stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.orientation)} pendant`;
+      generateObject(false);
+      stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.orientation)} ${state.mode}`;
     });
 
     function capitalize(value) {
@@ -747,6 +799,56 @@
         for (let i = 1; i < arr.length - 1; i++) arr[i] = (arr[i - 1] + arr[i] * 2 + arr[i + 1]) / 4;
       }
     }
+
+    function switchMode(mode) {
+      state.mode = mode;
+      pendantModeBtn.classList.toggle('active', mode === 'pendant');
+      vaseModeBtn.classList.toggle('active', mode === 'vase');
+      modeTitle.textContent = mode === 'pendant' ? 'Create Pendant' : 'Create Vase';
+      generateBtn.textContent = mode === 'pendant' ? 'Generate 3D Pendant' : 'Generate 3D Vase';
+      orientationBtn.style.display = mode === 'pendant' ? 'block' : 'none';
+      thicknessControl.style.display = mode === 'vase' ? 'block' : 'none';
+      modeHint.textContent = mode === 'pendant'
+        ? 'Record your voice, drag across the waveform to choose the exact sound segment, then generate a single connected necklace-style pendant. The top loop stays fixed while only the pendant body changes height.'
+        : 'Record your voice, crop the sound segment, then generate a bespoke voice vase. Thickness controls the wall thickness for 3D printing.';
+      stageBadge.textContent = `Drag to rotate 360° • ${capitalize(mode)}`;
+      generateObject(false);
+    }
+
+    pendantModeBtn.addEventListener('click', () => switchMode('pendant'));
+    vaseModeBtn.addEventListener('click', () => switchMode('vase'));
+
+    function resetAll() {
+      state.audio.pause();
+      state.audioChunks = [];
+      state.audioBlob = null;
+      state.audioBuffer = null;
+      state.waveformData = [];
+      state.liveData = [];
+      state.cropStart = 0;
+      state.cropEnd = 0;
+      state.duration = 0;
+      timer.textContent = '00:00';
+      cropStartEl.textContent = '0.00s';
+      cropEndEl.textContent = '0.00s';
+      playbackBar.value = 0;
+      playbackBar.max = 0;
+      playbackBar.disabled = true;
+      playbackTime.textContent = '0.00s / 0.00s';
+      playBtn.disabled = true;
+      generateBtn.disabled = true;
+      downloadBtn.disabled = true;
+      selectAllBtn.disabled = true;
+      heightSlider.value = 70;
+      widthSlider.value = 32;
+      detailSlider.value = 64;
+      thicknessSlider.value = 2.4;
+      updateLabelsAndPreview();
+      drawWaveform();
+      generateObject(false);
+    }
+
+    resetBtn.addEventListener('click', resetAll);
 
     function pendantGeometry() {
       const bodyHeight = Number(heightSlider.value);
@@ -827,25 +929,91 @@
       });
     }
 
-    function generatePendant(showLoading = true) {
+    function vaseGeometry() {
+      const height = Number(heightSlider.value);
+      const maxWidth = Number(widthSlider.value) / 2;
+      const thickness = Number(thicknessSlider.value);
+      const amps = getSelectedAmplitudes();
+      const segmentsY = amps.length;
+      const radialSegments = 112;
+      const vertices = [];
+      const indices = [];
+      const yBottom = -height / 2;
+
+      for (let i = 0; i <= segmentsY; i++) {
+        const t = i / segmentsY;
+        const y = yBottom + t * height;
+        const amp = amps[Math.min(amps.length - 1, i)] || .5;
+        const baseProfile = .48 + .34 * Math.sin(Math.PI * t) + .1 * Math.sin(Math.PI * 3 * t);
+        const voiceRipple = state.audioBuffer ? amp * 4.2 : 0;
+        const outerRadius = Math.max(5, maxWidth * baseProfile + voiceRipple);
+        const innerRadius = Math.max(2, outerRadius - thickness);
+        for (let j = 0; j < radialSegments; j++) {
+          const a = j / radialSegments * Math.PI * 2;
+          vertices.push(Math.cos(a) * outerRadius, y, Math.sin(a) * outerRadius);
+        }
+        for (let j = 0; j < radialSegments; j++) {
+          const a = j / radialSegments * Math.PI * 2;
+          vertices.push(Math.cos(a) * innerRadius, y, Math.sin(a) * innerRadius);
+        }
+      }
+
+      for (let i = 0; i < segmentsY; i++) {
+        const row = i * radialSegments * 2;
+        const next = (i + 1) * radialSegments * 2;
+        for (let j = 0; j < radialSegments; j++) {
+          const j2 = (j + 1) % radialSegments;
+          const o1 = row + j, o2 = row + j2, o3 = next + j, o4 = next + j2;
+          const in1 = row + radialSegments + j, in2 = row + radialSegments + j2;
+          const in3 = next + radialSegments + j, in4 = next + radialSegments + j2;
+          indices.push(o1, o3, o2, o2, o3, o4);
+          indices.push(in2, in3, in1, in2, in4, in3);
+        }
+      }
+
+      const lastRow = segmentsY * radialSegments * 2;
+      for (let j = 0; j < radialSegments; j++) {
+        const j2 = (j + 1) % radialSegments;
+        indices.push(lastRow + j, lastRow + j2, lastRow + radialSegments + j);
+        indices.push(lastRow + j2, lastRow + radialSegments + j2, lastRow + radialSegments + j);
+      }
+
+      const bottomCenterIndex = vertices.length / 3;
+      vertices.push(0, yBottom, 0);
+      for (let j = 0; j < radialSegments; j++) {
+        const j2 = (j + 1) % radialSegments;
+        indices.push(bottomCenterIndex, j2, j);
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setIndex(indices);
+      geometry.computeVertexNormals();
+      return geometry;
+    }
+
+    function generateObject(showLoading = true) {
       if (showLoading) loading.style.display = 'grid';
       requestAnimationFrame(() => {
         if (state.mesh) scene.remove(state.mesh);
         const bodyHeight = Number(heightSlider.value);
-        const group = new THREE.Group();
         const maxWidth = Number(widthSlider.value) / 2;
-        const bodyGeometry = state.audioBuffer
-          ? pendantGeometry()
-          : new THREE.CylinderGeometry(maxWidth * .72, maxWidth * .72, bodyHeight, 96, 1);
+        const group = new THREE.Group();
+        let bodyGeometry;
+        if (state.mode === 'vase') {
+          bodyGeometry = state.audioBuffer ? vaseGeometry() : new THREE.CylinderGeometry(maxWidth * .72, maxWidth * .72, bodyHeight, 112, 1, true);
+        } else {
+          bodyGeometry = state.audioBuffer ? pendantGeometry() : new THREE.CylinderGeometry(maxWidth * .72, maxWidth * .72, bodyHeight, 96, 1);
+        }
         const body = new THREE.Mesh(bodyGeometry, metalMaterial());
         group.add(body);
-        if (state.audioBuffer && state.orientation === 'vertical') group.add(makeLoopAndConnector(bodyHeight));
+        if (state.mode === 'pendant' && state.audioBuffer && state.orientation === 'vertical') group.add(makeLoopAndConnector(bodyHeight));
         scene.add(group);
         state.mesh = group;
         applyOrientation();
-        state.stlText = groupToSTL(group, 'voice_pendant');
+        state.stlText = groupToSTL(group, state.mode === 'pendant' ? 'voice_pendant' : 'voice_vase');
         downloadBtn.disabled = false;
-        stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.orientation)} pendant`;
+        stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.mode)}`;
         if (showLoading) setTimeout(() => loading.style.display = 'none', 250);
       });
     }
@@ -915,12 +1083,12 @@
       const blob = new Blob([state.stlText], { type: 'model/stl' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'voice-pendant.stl';
+      a.download = state.mode === 'pendant' ? 'voice-pendant.stl' : 'voice-vase.stl';
       a.click();
       URL.revokeObjectURL(a.href);
     }
 
-    generateBtn.addEventListener('click', () => generatePendant(true));
+    generateBtn.addEventListener('click', () => generateObject(true));
     downloadBtn.addEventListener('click', downloadSTL);
 
     function animate() {
@@ -931,7 +1099,7 @@
 
     updateLabelsAndPreview();
     resizeRenderer();
-    generatePendant(false);
+    generateObject(false);
     animate();
   </script>
 </body>
