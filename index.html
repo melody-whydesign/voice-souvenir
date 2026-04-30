@@ -19,7 +19,22 @@
     .cropReadout { font-size: 14px; color: #555; margin-top: 8px; line-height: 1.4; }
     #viewer { height: 680px; border-radius: 16px; overflow: hidden; background: #eeeae3; }
     .status { margin-top: 18px; font-size: 14px; color: #555; line-height: 1.5; }
-    @media (max-width: 850px) { main { grid-template-columns: 1fr; } #viewer { height: 480px; } }
+    @media (max-width: 850px) {
+      main {
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Move 3D viewer above controls */
+      main section:nth-child(2) {
+        order: -1;
+      }
+
+      #viewer {
+        height: 420px;
+        margin-bottom: 16px;
+      }
+    } #viewer { height: 480px; } }
   </style>
 </head>
 <body>
