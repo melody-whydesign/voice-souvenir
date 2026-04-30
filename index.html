@@ -298,6 +298,7 @@
         <button id="centerViewBtn" class="small-button">Side View</button>
       </div>
 
+      <button id="orientationBtn" class="button">Orientation: Vertical</button>
       <button id="generateBtn" class="button primary" disabled>Generate 3D Pendant</button>
       <button id="downloadBtn" class="button" disabled>Download STL</button>
 
@@ -306,10 +307,6 @@
         <input id="heightSlider" type="range" min="45" max="110" value="70" />
       </div>
 
-      <div class="control">
-        <label>Object weight <span id="weightValue">Medium</span></label>
-        <input id="weightSlider" type="range" min="0.65" max="1.6" step="0.05" value="1" />
-      </div>
 
       <div class="control">
         <label>Maximum width <span id="widthValue">32 mm</span></label>
@@ -325,7 +322,7 @@
     </aside>
 
     <section class="stage">
-      <div class="stage-badge" id="stageBadge">Default straight side view</div>
+      <div class="stage-badge" id="stageBadge">Drag to rotate 360° • Vertical pendant</div>
       <canvas id="viewer"></canvas>
       <div class="loading" id="loading">Generating connected pendant…</div>
     </section>
@@ -357,12 +354,17 @@
       dragStartRatio: 0,
       mesh: null,
       stlText: '',
+      orientation: 'vertical',
+      isPointerRotating: false,
+      lastPointerX: 0,
+      lastPointerY: 0,
     };
 
     const startBtn = $('startBtn');
     const stopBtn = $('stopBtn');
     const playBtn = $('playBtn');
     const generateBtn = $('generateBtn');
+    const orientationBtn = $('orientationBtn');
     const downloadBtn = $('downloadBtn');
     const timer = $('timer');
     const waveform = $('waveform');
@@ -376,11 +378,9 @@
     const selectAllBtn = $('selectAllBtn');
     const centerViewBtn = $('centerViewBtn');
     const heightSlider = $('heightSlider');
-    const weightSlider = $('weightSlider');
     const widthSlider = $('widthSlider');
     const detailSlider = $('detailSlider');
     const heightValue = $('heightValue');
-    const weightValue = $('weightValue');
     const widthValue = $('widthValue');
     const detailValue = $('detailValue');
     const loading = $('loading');
@@ -656,7 +656,6 @@
     playBtn.addEventListener('click', playRecording);
 
     heightSlider.addEventListener('input', updateLabelsAndPreview);
-    weightSlider.addEventListener('input', updateLabelsAndPreview);
     widthSlider.addEventListener('input', updateLabelsAndPreview);
     detailSlider.addEventListener('input', updateLabelsAndPreview);
 
@@ -664,8 +663,6 @@
       heightValue.textContent = `${heightSlider.value} mm body`;
       widthValue.textContent = `${widthSlider.value} mm`;
       detailValue.textContent = `${detailSlider.value} rings`;
-      const weight = Number(weightSlider.value);
-      weightValue.textContent = weight < .85 ? 'Light' : weight < 1.25 ? 'Medium' : 'Heavy';
       if (state.mesh) generatePendant(false);
     }
 
@@ -703,8 +700,23 @@
     centerViewBtn.addEventListener('click', () => {
       camera.position.set(0, 0, 185);
       camera.lookAt(0, 0, 0);
-      stageBadge.textContent = 'Default straight side view';
+      if (state.mesh) {
+        state.mesh.rotation.set(0, 0, 0);
+        applyOrientation();
+      }
+      stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.orientation)} pendant`;
     });
+
+    orientationBtn.addEventListener('click', () => {
+      state.orientation = state.orientation === 'vertical' ? 'horizontal' : 'vertical';
+      orientationBtn.textContent = `Orientation: ${capitalize(state.orientation)}`;
+      generatePendant(false);
+      stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.orientation)} pendant`;
+    });
+
+    function capitalize(value) {
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    }
 
     function getSelectedAmplitudes() {
       const detail = Number(detailSlider.value);
@@ -735,7 +747,6 @@
     function pendantGeometry() {
       const bodyHeight = Number(heightSlider.value);
       const maxWidth = Number(widthSlider.value) / 2;
-      const weight = Number(weightSlider.value);
       const amps = getSelectedAmplitudes();
       const segmentsY = amps.length;
       const radialSegments = 96;
@@ -750,7 +761,7 @@
         const silhouette = Math.sin(Math.PI * t) ** 0.34;
         const voiceRipple = 0.62 + amp * 0.82;
         const lobe = 0.82 + 0.23 * Math.sin(t * Math.PI * 8.0);
-        let radius = maxWidth * silhouette * voiceRipple * lobe * weight;
+        let radius = maxWidth * silhouette * voiceRipple * lobe;
         radius = Math.max(1.3, Math.min(maxWidth * 1.25, radius));
         if (i === 0 || i === segmentsY) radius = 1.2;
         for (let j = 0; j < radialSegments; j++) {
@@ -785,9 +796,9 @@
       connector.position.y = yTop + 4.8;
       group.add(connector);
 
-      // Vertical necklace loop: torus is rotated upright and touches the connector/body.
+      // Vertical necklace loop: upright like a bail, welded into the pendant body.
       const loop = new THREE.Mesh(new THREE.TorusGeometry(9.2, 2.1, 24, 96), mat);
-      loop.rotation.x = Math.PI / 2;
+      loop.rotation.y = Math.PI / 2;
       loop.position.y = yTop + 16.2;
       group.add(loop);
 
@@ -818,12 +829,41 @@
         group.add(makeLoopAndConnector(bodyHeight));
         scene.add(group);
         state.mesh = group;
+        applyOrientation();
         state.stlText = groupToSTL(group, 'voice_pendant');
         downloadBtn.disabled = false;
-        stageBadge.textContent = 'Generated from selected waveform segment';
+        stageBadge.textContent = `Drag to rotate 360° • ${capitalize(state.orientation)} pendant`;
         if (showLoading) setTimeout(() => loading.style.display = 'none', 250);
       });
     }
+
+    function applyOrientation() {
+      if (!state.mesh) return;
+      state.mesh.rotation.z = state.orientation === 'horizontal' ? Math.PI / 2 : 0;
+    }
+
+    const viewerCanvas = $('viewer');
+    viewerCanvas.addEventListener('pointerdown', e => {
+      state.isPointerRotating = true;
+      state.lastPointerX = e.clientX;
+      state.lastPointerY = e.clientY;
+      viewerCanvas.setPointerCapture(e.pointerId);
+    });
+
+    viewerCanvas.addEventListener('pointermove', e => {
+      if (!state.isPointerRotating || !state.mesh) return;
+      const dx = e.clientX - state.lastPointerX;
+      const dy = e.clientY - state.lastPointerY;
+      state.mesh.rotation.y += dx * 0.01;
+      state.mesh.rotation.x += dy * 0.01;
+      state.lastPointerX = e.clientX;
+      state.lastPointerY = e.clientY;
+      stageBadge.textContent = 'Drag to rotate 360°';
+    });
+
+    viewerCanvas.addEventListener('pointerup', () => {
+      state.isPointerRotating = false;
+    });
 
     function groupToSTL(group, name) {
       group.updateMatrixWorld(true);
@@ -872,7 +912,7 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      if (state.mesh) state.mesh.rotation.y += 0.0035;
+      if (state.mesh && !state.isPointerRotating) state.mesh.rotation.y += 0.0018;
       renderer.render(scene, camera);
     }
 
