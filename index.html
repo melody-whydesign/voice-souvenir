@@ -3,66 +3,190 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voice Pendant 3D Generator</title>
+  <title>3D Sound Wave</title>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #f4f1ec; color: #222; }
-    header { padding: 28px; text-align: center; background: #1f1f1f; color: white; }
-    main { max-width: 1200px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 360px 1fr; gap: 24px; }
-    .panel { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
-    button { width: 100%; padding: 14px 16px; margin: 8px 0; border: none; border-radius: 10px; background: #222; color: white; font-size: 16px; cursor: pointer; }
-    button:disabled { background: #aaa; cursor: not-allowed; }
-    label { display: block; margin-top: 14px; font-weight: bold; }
-    input[type="range"] { width: 100%; margin-top: 8px; }
-    .timer { font-size: 34px; font-weight: bold; margin-top: 20px; text-align: center; }
-    #waveCanvas { width: 100%; height: 84px; display: block; background: #f0f0f0; border-radius: 14px; margin-top: 14px; margin-bottom: 18px; }
-    .cropBox { display: none; padding: 12px; border-radius: 12px; background: #f5f5f5; margin: 10px 0 18px; }
-    .cropReadout { font-size: 14px; color: #555; margin-top: 8px; line-height: 1.4; }
-    #viewer { height: 520px; margin-top: 12px; border-radius: 16px; overflow: hidden; background: #eeeae3; }
-    .status { margin-top: 18px; font-size: 14px; color: #555; line-height: 1.5; }
+    :root {
+      --bg: #f5f5f7;
+      --panel: rgba(255, 255, 255, 0.86);
+      --text: #1d1d1f;
+      --muted: #6e6e73;
+      --line: #d2d2d7;
+      --button: #1d1d1f;
+      --button-disabled: #b8b8bd;
+      --blue: #0071e3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      padding: 56px 24px 34px;
+      text-align: center;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f5f7 100%);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(42px, 7vw, 76px);
+      line-height: 0.96;
+      letter-spacing: -0.055em;
+      font-weight: 700;
+    }
+
+    header p {
+      max-width: 680px;
+      margin: 18px auto 0;
+      font-size: 21px;
+      line-height: 1.35;
+      color: var(--muted);
+      letter-spacing: -0.015em;
+    }
+
+    main {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 26px 24px 54px;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 24px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,0.72);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 18px 60px rgba(0,0,0,0.08);
+      backdrop-filter: blur(18px);
+    }
+
+    h2 {
+      margin: 2px 0 18px;
+      font-size: 28px;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+    }
+
+    button {
+      width: 100%;
+      padding: 13px 16px;
+      margin: 7px 0;
+      border: none;
+      border-radius: 999px;
+      background: var(--button);
+      color: white;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease, opacity 0.16s ease;
+    }
+
+    button:hover:not(:disabled) { transform: translateY(-1px); }
+    button:active:not(:disabled) { transform: scale(0.99); }
+
+    button:disabled {
+      background: var(--button-disabled);
+      cursor: not-allowed;
+    }
+
+    #generateBtn {
+      background: var(--blue);
+      margin-top: 10px;
+    }
+
+    label {
+      display: block;
+      margin-top: 17px;
+      margin-bottom: 4px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--blue);
+    }
+
+    .timer {
+      font-size: 40px;
+      font-weight: 700;
+      margin-top: 20px;
+      text-align: center;
+      letter-spacing: -0.045em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #waveCanvas {
+      width: 100%;
+      height: 92px;
+      display: block;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      margin-top: 14px;
+      margin-bottom: 18px;
+    }
+
+    .cropBox {
+      display: none;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255,255,255,0.72);
+      margin: 12px 0 18px;
+    }
+
+    .cropReadout {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+      line-height: 1.45;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #viewer {
+      height: 680px;
+      border-radius: 28px;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 35%, #ffffff 0%, #f5f5f7 46%, #e8e8ed 100%);
+    }
+
+    .status {
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
     @media (max-width: 850px) {
-  main {
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Make panel stack controllable */
-  .panel {
-    display: flex;
-    flex-direction: column;
-  }
-
-  /* Ensure 3D viewer sits between waveform and generate button */
-  #waveCanvas { order: 6; }
-  #viewer { order: 7; }
-  #generateBtn { order: 8; }
-
-  #viewer {
-    height: 420px;
-    margin: 12px 0;
-  }
-}
-
-      /* Move 3D viewer above controls on mobile */
-      main section:nth-child(2) {
-        order: -1;
+      header { padding-top: 42px; }
+      main {
+        grid-template-columns: 1fr;
+        padding: 20px 16px 40px;
       }
-
-      #viewer {
-        height: 420px;
-        margin-bottom: 16px;
-      }
+      #viewer { height: 500px; }
     }
   </style>
 </head>
 <body>
   <header>
-    <h1>Voice Pendant 3D Generator</h1>
-    <p>Record, crop, and transform your voice into a printable 3D pendant.</p>
+    <h1>3D Sound Wave</h1>
+    <p>Record your voice. Shape it into a personal 3D pendant.</p>
   </header>
 
   <main>
     <section class="panel">
-      <h2>Create Pendant</h2>
+      <h2>Create your sound object</h2>
 
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop Recording</button>
