@@ -20,10 +20,27 @@
     #viewer { height: 520px; margin-top: 12px; border-radius: 16px; overflow: hidden; background: #eeeae3; }
     .status { margin-top: 18px; font-size: 14px; color: #555; line-height: 1.5; }
     @media (max-width: 850px) {
-      main {
-        display: flex;
-        flex-direction: column;
-      }
+  main {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Make panel stack controllable */
+  .panel {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Ensure 3D viewer sits between waveform and generate button */
+  #waveCanvas { order: 6; }
+  #viewer { order: 7; }
+  #generateBtn { order: 8; }
+
+  #viewer {
+    height: 420px;
+    margin: 12px 0;
+  }
+}
 
       /* Move 3D viewer above controls on mobile */
       main section:nth-child(2) {
