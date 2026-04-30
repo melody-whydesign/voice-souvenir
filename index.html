@@ -17,7 +17,7 @@
     #waveCanvas { width: 100%; height: 84px; display: block; background: #f0f0f0; border-radius: 14px; margin-top: 14px; margin-bottom: 18px; }
     .cropBox { display: none; padding: 12px; border-radius: 12px; background: #f5f5f5; margin: 10px 0 18px; }
     .cropReadout { font-size: 14px; color: #555; margin-top: 8px; line-height: 1.4; }
-    #viewer { height: 680px; border-radius: 16px; overflow: hidden; background: #eeeae3; }
+    #viewer { height: 520px; margin-top: 12px; border-radius: 16px; overflow: hidden; background: #eeeae3; }
     .status { margin-top: 18px; font-size: 14px; color: #555; line-height: 1.5; }
     @media (max-width: 850px) {
       main {
@@ -68,6 +68,9 @@
         <div class="cropReadout" id="cropReadout">Using full recording</div>
       </div>
 
+      
+      <div id="viewer"></div>
+
       <button id="generateBtn" disabled>Generate 3D Pendant</button>
       <button id="downloadBtn" disabled>Download STL</button>
 
@@ -86,9 +89,7 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div id="viewer"></div>
-    </section>
+    
   </main>
 
   <script type="importmap">
