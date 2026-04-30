@@ -63,18 +63,6 @@
       margin-top: 8px;
     }
 
-    .option-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 10px;
-      font-size: 15px;
-    }
-
-    .option-row input {
-      width: auto;
-    }
-
     .timer {
       font-size: 34px;
       font-weight: bold;
@@ -88,6 +76,7 @@
       border-radius: 999px;
       overflow: hidden;
       margin-top: 14px;
+      margin-bottom: 18px;
     }
 
     .meter {
@@ -105,7 +94,7 @@
     }
 
     .status {
-      margin-top: 16px;
+      margin-top: 18px;
       font-size: 14px;
       color: #555;
       line-height: 1.5;
@@ -152,14 +141,8 @@
       <label for="ringInput">Ring strength</label>
       <input id="ringInput" type="range" min="0" max="20" value="11" />
 
-      <label>Select ornament parts</label>
-      <div class="option-row"><input id="topLoopCheck" type="checkbox" checked /> <span>Top hanging loop</span></div>
-      <div class="option-row"><input id="wideDiscCheck" type="checkbox" checked /> <span>Wide circular discs</span></div>
-      <div class="option-row"><input id="voiceRidgeCheck" type="checkbox" checked /> <span>Voice ridges</span></div>
-      <div class="option-row"><input id="bottomDropCheck" type="checkbox" checked /> <span>Bottom drop</span></div>
-
       <div class="status" id="status">
-        Ready. Record 3 to 8 seconds. The audio will generate a one-piece pendant.
+        Record your voice. Adjust the settings. Generate and download your 3D pendant.
       </div>
     </section>
 
@@ -193,10 +176,6 @@
     const radiusInput = document.getElementById('radiusInput');
     const detailInput = document.getElementById('detailInput');
     const ringInput = document.getElementById('ringInput');
-    const topLoopCheck = document.getElementById('topLoopCheck');
-    const wideDiscCheck = document.getElementById('wideDiscCheck');
-    const voiceRidgeCheck = document.getElementById('voiceRidgeCheck');
-    const bottomDropCheck = document.getElementById('bottomDropCheck');
     const viewer = document.getElementById('viewer');
 
     let mediaRecorder;
@@ -213,7 +192,7 @@
     scene.background = new THREE.Color(0xeeeae3);
 
     const camera = new THREE.PerspectiveCamera(45, viewer.clientWidth / viewer.clientHeight, 0.1, 3000);
-    camera.position.set(95, -190, 110);
+    camera.position.set(0, 0, 260);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(viewer.clientWidth, viewer.clientHeight);
@@ -221,19 +200,17 @@
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.enablePan = true;
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    keyLight.position.set(100, -120, 220);
+    keyLight.position.set(80, -120, 220);
     scene.add(keyLight);
 
     const fillLight = new THREE.DirectionalLight(0xffffff, 0.45);
-    fillLight.position.set(-120, 100, 120);
+    fillLight.position.set(-100, 80, 140);
     scene.add(fillLight);
-
-    const grid = new THREE.GridHelper(160, 16);
-    scene.add(grid);
 
     animate();
     buildDefaultPendant();
@@ -280,6 +257,7 @@
 
         mediaRecorder.start();
         recordingStart = Date.now();
+        timerEl.textContent = '00:00';
         timerInterval = setInterval(updateTimer, 200);
 
         startBtn.disabled = true;
@@ -303,7 +281,7 @@
       if (!audioBuffer) return;
       buildVoicePendant(audioBuffer);
       downloadBtn.disabled = false;
-      statusEl.textContent = 'One-piece pendant generated. Drag to rotate. Download STL when ready.';
+      statusEl.textContent = 'Pendant generated. Drag to rotate. Download STL when ready.';
     };
 
     downloadBtn.onclick = () => {
@@ -317,7 +295,7 @@
       link.click();
     };
 
-    [heightInput, radiusInput, detailInput, ringInput, topLoopCheck, wideDiscCheck, voiceRidgeCheck, bottomDropCheck].forEach(el => {
+    [heightInput, radiusInput, detailInput, ringInput].forEach(el => {
       el.addEventListener('input', () => {
         if (audioBuffer) buildVoicePendant(audioBuffer);
         else buildDefaultPendant();
@@ -353,8 +331,9 @@
     }
 
     function buildDefaultPendant() {
-      const fake = Array.from({ length: Number(detailInput.value) }, (_, i) => {
-        const t = i / (Number(detailInput.value) - 1);
+      const count = Number(detailInput.value);
+      const fake = Array.from({ length: count }, (_, i) => {
+        const t = i / (count - 1);
         return 0.45 + 0.35 * Math.sin(t * Math.PI * 5) * Math.sin(t * Math.PI);
       });
       buildPendantFromWave(fake);
@@ -384,18 +363,15 @@
       const mainMesh = createOnePieceLathe(waveform, height, maxRadius, ringStrength, material);
       currentObject.add(mainMesh);
 
-      if (topLoopCheck.checked) addConnectedTopLoop(currentObject, height, material);
+      addVerticalTopLoop(currentObject, height, material);
 
       scene.add(currentObject);
-      frameObject(currentObject);
+      setStraightSideView(currentObject);
     }
 
     function createOnePieceLathe(waveform, height, maxRadius, ringStrength, material) {
       const points = [];
       const count = waveform.length;
-      const includeDiscs = wideDiscCheck.checked;
-      const includeVoice = voiceRidgeCheck.checked;
-      const includeBottom = bottomDropCheck.checked;
 
       for (let i = 0; i < count; i++) {
         const t = i / (count - 1);
@@ -403,48 +379,40 @@
 
         let radius = 4.2;
 
-        // Main slender body.
+        // Main slender pendant body.
         radius += Math.sin(t * Math.PI) * 3.5;
 
-        // Voice imprint controls the organic swelling.
-        if (includeVoice) {
-          radius += waveform[i] * maxRadius * 0.42;
-          radius += Math.pow(Math.max(0, Math.sin(t * Math.PI * 18)), 12) * waveform[i] * 4.5;
-        }
+        // Voice imprint creates organic swelling.
+        radius += waveform[i] * maxRadius * 0.42;
+        radius += Math.pow(Math.max(0, Math.sin(t * Math.PI * 18)), 12) * waveform[i] * 4.5;
 
-        // Large pendant discs are blended into the same lathe surface.
-        if (includeDiscs) {
-          radius += gaussian(t, 0.22, 0.030) * (maxRadius * 0.85 + ringStrength * 0.7);
-          radius += gaussian(t, 0.43, 0.026) * (maxRadius * 0.70 + ringStrength * 0.55);
-          radius += gaussian(t, 0.66, 0.030) * (maxRadius * 0.88 + ringStrength * 0.75);
-          radius += gaussian(t, 0.82, 0.025) * (maxRadius * 0.58 + ringStrength * 0.35);
-        }
+        // Large circular pendant shelves blended into one continuous body.
+        radius += gaussian(t, 0.22, 0.030) * (maxRadius * 0.85 + ringStrength * 0.7);
+        radius += gaussian(t, 0.43, 0.026) * (maxRadius * 0.70 + ringStrength * 0.55);
+        radius += gaussian(t, 0.66, 0.030) * (maxRadius * 0.88 + ringStrength * 0.75);
+        radius += gaussian(t, 0.82, 0.025) * (maxRadius * 0.58 + ringStrength * 0.35);
 
-        // Fine decorative rings, also part of the same skin.
+        // Fine decorative rings.
         radius += Math.pow(Math.max(0, Math.sin(t * Math.PI * 10)), 20) * ringStrength * 0.35;
 
-        // Necked sections between discs.
+        // Necked sections between shelves.
         radius -= gaussian(t, 0.34, 0.04) * 4.5;
         radius -= gaussian(t, 0.55, 0.035) * 4.0;
         radius -= gaussian(t, 0.75, 0.03) * 3.2;
 
-        // Top taper connects to loop stem.
-        if (t > 0.93) radius *= (1 - t) / 0.07;
+        // Smooth top taper into connector.
+        if (t > 0.93) radius *= Math.max(0.18, (1 - t) / 0.07);
 
-        // Bottom pendant drop.
-        if (includeBottom) {
-          if (t < 0.08) radius *= Math.sin((t / 0.08) * Math.PI * 0.5);
-          radius += gaussian(t, 0.055, 0.018) * 5.2;
-          radius += gaussian(t, 0.015, 0.012) * 2.0;
-        } else if (t < 0.06) {
-          radius *= t / 0.06;
-        }
+        // Bottom drop.
+        if (t < 0.08) radius *= Math.sin((t / 0.08) * Math.PI * 0.5);
+        radius += gaussian(t, 0.055, 0.018) * 5.2;
+        radius += gaussian(t, 0.015, 0.012) * 2.0;
 
         radius = Math.max(0.9, radius);
         points.push(new THREE.Vector2(radius, y));
       }
 
-      // Close top and bottom cleanly for STL.
+      // Close for STL printing.
       points.unshift(new THREE.Vector2(0.01, -height / 2));
       points.push(new THREE.Vector2(0.01, height / 2));
 
@@ -453,22 +421,30 @@
       return new THREE.Mesh(geometry, material);
     }
 
-    function addConnectedTopLoop(group, height, material) {
-      // Stem touches the pendant top, so visually and physically it becomes one pendant part.
-      const stem = new THREE.Mesh(
-        new THREE.CylinderGeometry(2.2, 2.8, 15, 64),
+    function addVerticalTopLoop(group, height, material) {
+      // Connector neck from pendant body to loop.
+      const connector = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.8, 3.4, 12, 64),
         material
       );
-      stem.position.y = height / 2 + 6.5;
-      group.add(stem);
+      connector.position.y = height / 2 + 5.5;
+      group.add(connector);
 
+      // Vertical loop: its flat face is visible from the default side view.
       const loop = new THREE.Mesh(
-        new THREE.TorusGeometry(8, 1.7, 24, 96),
+        new THREE.TorusGeometry(8, 1.8, 28, 120),
         material
       );
-      loop.rotation.x = Math.PI / 2;
       loop.position.y = height / 2 + 18;
       group.add(loop);
+
+      // Small joining bead so the loop visibly touches the connector.
+      const bead = new THREE.Mesh(
+        new THREE.SphereGeometry(3.4, 48, 24),
+        material
+      );
+      bead.position.y = height / 2 + 10.5;
+      group.add(bead);
     }
 
     function extractWaveform(buffer, sampleCount) {
@@ -506,15 +482,17 @@
       return Math.exp(-Math.pow(x - center, 2) / (2 * width * width));
     }
 
-    function frameObject(object) {
+    function setStraightSideView(object) {
       const box = new THREE.Box3().setFromObject(object);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
       const largest = Math.max(size.x, size.y, size.z);
 
       controls.target.copy(center);
-      camera.position.set(center.x + largest * 0.8, center.y - largest * 1.5, center.z + largest * 0.7);
+      camera.position.set(center.x, center.y, center.z + largest * 2.25);
+      camera.up.set(0, 1, 0);
       camera.lookAt(center);
+      camera.updateProjectionMatrix();
     }
   </script>
 </body>
