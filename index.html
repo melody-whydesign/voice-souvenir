@@ -229,6 +229,7 @@
     }
 
     .colour-swatch {
+      width: 38px;
       height: 38px;
       border: 2px solid rgba(0,0,0,.08);
       border-radius: 999px;
@@ -969,11 +970,11 @@
 
     function metalMaterial() {
       const palette = {
-        silver: { color: 0x777777, metalness: .88, roughness: .22, label: 'Silver' },
-        gold: { color: 0xc99a3d, metalness: .9, roughness: .2, label: 'Gold' },
-        black: { color: 0x111111, metalness: .72, roughness: .3, label: 'Black' },
-        white: { color: 0xf3f0e8, metalness: .25, roughness: .38, label: 'White' },
-        rose: { color: 0xb76e79, metalness: .86, roughness: .24, label: 'Rose gold' }
+        silver: { color: 0xbfc3c9, metalness: .95, roughness: .18, label: 'Silver' },
+        gold: { color: 0xd4af37, metalness: .98, roughness: .22, label: 'Gold' },
+        black: { color: 0x1a1a1a, metalness: .35, roughness: .55, label: 'Black (matte)' },
+        white: { color: 0xf5f2e9, metalness: .1, roughness: .65, label: 'Ceramic white' },
+        rose: { color: 0xb76e79, metalness: .9, roughness: .25, label: 'Rose gold' }
       };
       const selected = palette[state.colour] || palette.silver;
       return new THREE.MeshStandardMaterial({
@@ -1033,21 +1034,24 @@
         indices.push(lastRow + j2, lastRow + radialSegments + j2, lastRow + radialSegments + j);
       }
 
+      // --- FIXED SOLID BOTTOM (NO HOLE) ---
       const bottomCenterIndex = vertices.length / 3;
       vertices.push(0, yBottom, 0);
 
-      // CLOSE bottom completely (no hole)
-      for (let j = 0; j < radialSegments; j++) {
-        const j2 = (j + 1) % radialSegments;
-        // seal using OUTER ring only
-        indices.push(bottomCenterIndex, j, j2);
-      }
+      const innerStart = radialSegments;
 
-      // seal inner wall so it doesn't form a tunnel
       for (let j = 0; j < radialSegments; j++) {
         const j2 = (j + 1) % radialSegments;
-        const innerStart = radialSegments;
-        indices.push(innerStart + j, innerStart + j2, bottomCenterIndex);
+
+        // outer bottom cap
+        indices.push(bottomCenterIndex, j2, j);
+
+        // inner bottom cap (flipped to seal cavity)
+        indices.push(bottomCenterIndex, innerStart + j, innerStart + j2);
+
+        // connect outer + inner rings (seal thickness ring)
+        indices.push(j, j2, innerStart + j);
+        indices.push(j2, innerStart + j2, innerStart + j);
       }
 
       const geometry = new THREE.BufferGeometry();
