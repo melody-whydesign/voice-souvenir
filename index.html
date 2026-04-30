@@ -1,107 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Voice Pendant Studio</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<style>
-body { margin:0; font-family:-apple-system; background:#f5f5f7; }
-canvas { display:block; }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Souvenir Studio</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root{--bg:#f5f5f7;--panel:rgba(255,255,255,.82);--text:#1d1d1f;--muted:#6e6e73;--blue:#0071e3;--red:#ff3b30;--shadow:0 24px 70px rgba(0,0,0,.08);--radius:28px}
+    *{box-sizing:border-box} body{margin:0;height:100vh;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;color:var(--text);background:linear-gradient(135deg,#fbfaf7,#f5f5f7 55%,#eceef2);overflow:hidden}
+    .app{height:100vh;padding:22px;display:grid;grid-template-columns:380px 1fr;gap:22px}.panel,.stage{border:1px solid rgba(0,0,0,.08);border-radius:var(--radius);background:var(--panel);backdrop-filter:blur(22px) saturate(160%);box-shadow:var(--shadow);overflow:hidden}.panel{padding:28px 26px;overflow-y:auto}h1{margin:0 0 22px;font-size:30px;line-height:1.08;letter-spacing:-.04em;font-weight:750}.menu{display:grid;gap:8px;margin-bottom:22px;padding:6px;border-radius:18px;background:rgba(255,255,255,.62);border:1px solid rgba(0,0,0,.06)}.menu-item{min-height:42px;border:0;border-radius:13px;background:transparent;color:var(--muted);font-size:15px;font-weight:750;text-align:left;padding:0 14px;cursor:pointer}.menu-item.active{background:#fff;color:var(--text);box-shadow:0 8px 22px rgba(0,0,0,.07)}
+    .button{width:100%;min-height:50px;border:0;border-radius:12px;margin:7px 0;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(180deg,#2b2b2d,#111113);cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.12),0 8px 22px rgba(0,0,0,.12)}.button:disabled{opacity:.38;cursor:not-allowed}.button.primary{background:linear-gradient(180deg,#0071e3,#005bb5)}.button.subtle{background:linear-gradient(180deg,#8e8e93,#76767b)}.button.recording{background:linear-gradient(180deg,#ff453a,#d70015)}.dot{display:inline-block;width:10px;height:10px;margin-right:7px;border-radius:50%;background:var(--red)}
+    .timer{margin:20px 0 10px;text-align:center;font-size:34px;font-weight:760;letter-spacing:-.045em;font-variant-numeric:tabular-nums}.wave-card{position:relative;margin:10px 0 12px;padding:10px 0 4px;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.45));border:1px solid rgba(0,0,0,.05);overflow:hidden;user-select:none}#waveform{display:block;width:100%;height:108px;cursor:crosshair}.crop-overlay{pointer-events:none;position:absolute;inset:10px 0 4px}.crop-region{position:absolute;top:0;bottom:0;background:rgba(0,113,227,.14);border-left:2px solid var(--blue);border-right:2px solid var(--blue);border-radius:10px}.playhead{pointer-events:none;position:absolute;top:10px;bottom:4px;width:2px;background:#1d1d1f;opacity:.8}.crop-times{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 14px;color:var(--muted);font-size:13px;font-weight:650;font-variant-numeric:tabular-nums}.time-pill{padding:8px 10px;border-radius:999px;background:rgba(255,255,255,.7);border:1px solid rgba(0,0,0,.06);text-align:center}.playback-wrap{margin:6px 0 20px}.playback-label{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;font-weight:650;font-variant-numeric:tabular-nums;margin-bottom:6px}input[type=range]{width:100%;accent-color:var(--blue);cursor:pointer}.selection-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}.small-button{min-height:36px;border:1px solid rgba(0,0,0,.08);border-radius:999px;background:rgba(255,255,255,.72);color:var(--text);font-weight:700;cursor:pointer}.control{margin:18px 0}.control label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;font-size:15px;font-weight:730;letter-spacing:-.02em}.control span{color:var(--muted);font-size:12px;font-weight:650}.colour-options{display:flex;gap:12px;margin-top:10px}.colour-swatch{width:34px;height:34px;border-radius:50%;border:2px solid rgba(0,0,0,.1);background:radial-gradient(circle at 30% 25%,rgba(255,255,255,.95),var(--swatch) 45%,rgba(0,0,0,.28) 100%);cursor:pointer;box-shadow:inset 0 1px rgba(255,255,255,.5),0 6px 18px rgba(0,0,0,.12)}.colour-swatch.active{outline:3px solid rgba(0,113,227,.28);border-color:#0071e3}.hint{color:var(--muted);font-size:14px;line-height:1.42;margin-top:22px}.stage{position:relative;background:linear-gradient(180deg,#fbfbfd,#f5f5f7)}#viewer{width:100%;height:100%;display:block;cursor:grab}.stage-badge{position:absolute;left:26px;top:24px;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.72);color:var(--muted);font-size:13px;font-weight:700;backdrop-filter:blur(18px);border:1px solid rgba(0,0,0,.06)}.loading{position:absolute;inset:0;display:none;place-items:center;background:rgba(245,245,247,.52);backdrop-filter:blur(8px);font-size:19px;font-weight:750}
+    @media(max-width:900px){body{overflow:auto}.app{height:auto;min-height:100vh;grid-template-columns:1fr}.stage{height:62vh;min-height:460px}}
+  </style>
 </head>
 <body>
-<canvas id="viewer"></canvas>
+<main class="app">
+  <aside class="panel">
+    <nav class="menu"><button id="pendantModeBtn" class="menu-item active">Create pendant</button><button id="vaseModeBtn" class="menu-item">Create vase</button></nav>
+    <h1 id="modeTitle">Create Pendant</h1>
+    <button id="startBtn" class="button"><span class="dot"></span>Start Recording</button><button id="stopBtn" class="button subtle" disabled>Stop Recording</button><button id="playBtn" class="button" disabled>Play Recording</button>
+    <div class="timer" id="timer">00:00</div>
+    <div class="wave-card"><canvas id="waveform"></canvas><div class="crop-overlay"><div id="cropRegion" class="crop-region"></div></div><div id="playhead" class="playhead"></div></div>
+    <div class="crop-times"><div class="time-pill">Start: <span id="cropStart">0.00s</span></div><div class="time-pill">End: <span id="cropEnd">0.00s</span></div></div>
+    <div class="playback-wrap"><div class="playback-label"><span>Playback</span><span id="playbackTime">0.00s / 0.00s</span></div><input id="playbackBar" type="range" min="0" max="0" step="0.01" value="0" disabled /></div>
+    <div class="selection-tools"><button id="selectAllBtn" class="small-button" disabled>Select All</button><button id="centerViewBtn" class="small-button">Side View</button></div>
+    <button id="orientationBtn" class="button">Orientation: Vertical</button><button id="generateBtn" class="button primary" disabled>Generate 3D Pendant</button><button id="downloadBtn" class="button" disabled>Download STL</button><button id="resetBtn" class="button subtle">Reset</button>
+    <div class="control"><label>Object height <span id="heightValue">70 mm body</span></label><input id="heightSlider" type="range" min="45" max="110" value="70" /></div>
+    <div class="control"><label>Maximum width <span id="widthValue">32 mm</span></label><input id="widthSlider" type="range" min="18" max="52" value="32" /></div>
+    <div class="control"><label>Voice detail <span id="detailValue">64 rings</span></label><input id="detailSlider" type="range" min="24" max="128" value="64" /></div>
+    <div class="control" id="thicknessControl" style="display:none"><label>Thickness <span id="thicknessValue">2.4 mm</span></label><input id="thicknessSlider" type="range" min="1.2" max="6" step="0.1" value="2.4" /></div>
+    <div class="control"><label>Colour <span id="colourValue">Champagne gold</span></label><div class="colour-options"><button class="colour-swatch active" data-colour="gold" style="--swatch:#d6b25e" aria-label="Champagne gold"></button><button class="colour-swatch" data-colour="silver" style="--swatch:#cfd2d6" aria-label="Silver"></button><button class="colour-swatch" data-colour="rose" style="--swatch:#d09a8e" aria-label="Rose gold"></button><button class="colour-swatch" data-colour="graphite" style="--swatch:#2b2b2d" aria-label="Graphite"></button></div></div>
+    <p class="hint" id="modeHint">Record your voice, crop the waveform, then generate a connected necklace-style pendant.</p>
+  </aside>
+  <section class="stage"><div class="stage-badge" id="stageBadge">Drag to rotate 360° • Vertical pendant</div><canvas id="viewer"></canvas><div class="loading" id="loading">Generating…</div></section>
+</main>
 <script>
-const canvas = document.getElementById('viewer');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.outputEncoding = THREE.sRGBEncoding;
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf5f5f7);
-
-const camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0,0,120);
-
-// APPLE STYLE LIGHTING
-const key = new THREE.DirectionalLight(0xffffff, 2.5);
-key.position.set(5,5,5);
-scene.add(key);
-
-const fill = new THREE.DirectionalLight(0xffffff, 1.2);
-fill.position.set(-5,2,5);
-scene.add(fill);
-
-const rim = new THREE.DirectionalLight(0xffffff, 2);
-rim.position.set(0,5,-5);
-scene.add(rim);
-
-const ambient = new THREE.AmbientLight(0xffffff, 0.8);
-scene.add(ambient);
-
-// FLOOR REFLECTION
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(500,500),
-  new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.95, metalness:0 })
-);
-floor.rotation.x = -Math.PI/2;
-floor.position.y = -40;
-scene.add(floor);
-
-// MATERIAL (APPLE STYLE)
-function createMaterial(type){
-  const presets = {
-    silver:{ color:0xe5e7eb, metalness:1, roughness:0.25 },
-    gold:{ color:0xf6c453, metalness:1, roughness:0.28 },
-    black:{ color:0x2c2c2e, metalness:0.6, roughness:0.45 },
-    rose:{ color:0xf2a1a1, metalness:1, roughness:0.3 }
-  };
-  const p = presets[type];
-  return new THREE.MeshPhysicalMaterial({
-    color:p.color,
-    metalness:p.metalness,
-    roughness:p.roughness,
-    clearcoat:1,
-    clearcoatRoughness:0.1
-  });
-}
-
-// SIMPLE PREVIEW OBJECT
-let mesh;
-function createObject(colour='silver'){
-  if(mesh) scene.remove(mesh);
-  const geo = new THREE.TorusGeometry(25,10,64,128);
-  mesh = new THREE.Mesh(geo, createMaterial(colour));
-  scene.add(mesh);
-}
-
-createObject('gold');
-
-// ROTATION
-let isDown=false, lx=0, ly=0;
-canvas.addEventListener('pointerdown',e=>{isDown=true;lx=e.clientX;ly=e.clientY});
-canvas.addEventListener('pointerup',()=>isDown=false);
-canvas.addEventListener('pointermove',e=>{
-  if(!isDown) return;
-  mesh.rotation.y += (e.clientX-lx)*0.01;
-  mesh.rotation.x += (e.clientY-ly)*0.01;
-  lx=e.clientX; ly=e.clientY;
-});
-
-function animate(){
-  requestAnimationFrame(animate);
-  renderer.render(scene,camera);
-}
-animate();
-
-window.addEventListener('resize',()=>{
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-});
+const $=id=>document.getElementById(id);
+const state={mediaRecorder:null,audioChunks:[],audioBlob:null,audioBuffer:null,audioUrl:null,audioContext:null,analyser:null,sourceNode:null,stream:null,isRecording:false,recordingStartedAt:0,recordingTimer:null,liveData:[],waveformData:[],cropStart:0,cropEnd:0,duration:0,audio:new Audio(),isDraggingCrop:false,dragStartRatio:0,mesh:null,stlText:'',mode:'pendant',orientation:'vertical',colour:'gold',isPointerRotating:false,lastPointerX:0,lastPointerY:0};
+const pendantModeBtn=$('pendantModeBtn'),vaseModeBtn=$('vaseModeBtn'),modeTitle=$('modeTitle'),modeHint=$('modeHint'),startBtn=$('startBtn'),stopBtn=$('stopBtn'),playBtn=$('playBtn'),generateBtn=$('generateBtn'),orientationBtn=$('orientationBtn'),downloadBtn=$('downloadBtn'),resetBtn=$('resetBtn'),timer=$('timer'),waveform=$('waveform'),cropRegion=$('cropRegion'),playhead=$('playhead'),cropStartEl=$('cropStart'),cropEndEl=$('cropEnd'),playbackBar=$('playbackBar'),playbackTime=$('playbackTime'),selectAllBtn=$('selectAllBtn'),centerViewBtn=$('centerViewBtn'),heightSlider=$('heightSlider'),widthSlider=$('widthSlider'),detailSlider=$('detailSlider'),thicknessControl=$('thicknessControl'),thicknessSlider=$('thicknessSlider'),heightValue=$('heightValue'),widthValue=$('widthValue'),detailValue=$('detailValue'),thicknessValue=$('thicknessValue'),colourValue=$('colourValue'),loading=$('loading'),stageBadge=$('stageBadge');
+const colourSwatches=document.querySelectorAll('.colour-swatch'),waveCtx=waveform.getContext('2d');
+function formatTime(sec){return !Number.isFinite(sec)?'0.00s':sec<60?`${sec.toFixed(2)}s`:`${String(Math.floor(sec/60)).padStart(2,'0')}:${String(Math.floor(sec%60)).padStart(2,'0')}`}function formatTimer(sec){return `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(Math.floor(sec%60)).padStart(2,'0')}`}
+function resizeWaveCanvas(){const r=waveform.getBoundingClientRect(),d=window.devicePixelRatio||1;waveform.width=Math.floor(r.width*d);waveform.height=Math.floor(r.height*d);waveCtx.setTransform(d,0,0,d,0,0);drawWaveform()}
+function roundedRect(ctx,x,y,w,h,r){r=Math.min(r,w/2,h/2);ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+function drawWaveform(){const r=waveform.getBoundingClientRect(),w=r.width,h=r.height;waveCtx.clearRect(0,0,w,h);waveCtx.fillStyle='rgba(255,255,255,.24)';waveCtx.fillRect(0,0,w,h);const data=state.isRecording?state.liveData:state.waveformData,bars=Math.max(48,Math.floor(w/5)),gap=3,barW=Math.max(1,w/bars-gap),center=h/2;waveCtx.strokeStyle='rgba(0,0,0,.08)';waveCtx.beginPath();waveCtx.moveTo(0,center);waveCtx.lineTo(w,center);waveCtx.stroke();for(let i=0;i<bars;i++){const idx=Math.floor(i/bars*Math.max(1,data.length)),amp=data[idx]||.02,barH=Math.max(4,amp*h*.86),x=i*(barW+gap)+gap/2,y=center-barH/2,inCrop=!state.isRecording&&state.duration>0&&(i/bars)>=state.cropStart/state.duration&&(i/bars)<=state.cropEnd/state.duration;waveCtx.fillStyle=inCrop?'#0071e3':'rgba(29,29,31,.44)';roundedRect(waveCtx,x,y,barW,barH,999);waveCtx.fill()}updateCropOverlay();updatePlayhead()}
+function updateCropOverlay(){if(!state.duration||state.isRecording){cropRegion.style.display='none';return}cropRegion.style.display='block';const s=state.cropStart/state.duration*100,e=state.cropEnd/state.duration*100;cropRegion.style.left=`${s}%`;cropRegion.style.width=`${Math.max(.5,e-s)}%`;cropStartEl.textContent=formatTime(state.cropStart);cropEndEl.textContent=formatTime(state.cropEnd)}
+function updatePlayhead(){const c=Number(playbackBar.value||0),m=Number(playbackBar.max||0);if(!m||state.isRecording){playhead.style.display='none';return}playhead.style.display='block';playhead.style.left=`${c/m*100}%`;playbackTime.textContent=`${formatTime(c)} / ${formatTime(m)}`}
+async function startRecording(){try{state.stream=await navigator.mediaDevices.getUserMedia({audio:true});state.audioChunks=[];state.liveData=[];state.isRecording=true;state.recordingStartedAt=performance.now();state.audioContext=new(window.AudioContext||window.webkitAudioContext)();state.analyser=state.audioContext.createAnalyser();state.analyser.fftSize=1024;state.sourceNode=state.audioContext.createMediaStreamSource(state.stream);state.sourceNode.connect(state.analyser);state.mediaRecorder=new MediaRecorder(state.stream);state.mediaRecorder.ondataavailable=e=>{if(e.data.size)state.audioChunks.push(e.data)};state.mediaRecorder.onstop=finishRecording;state.mediaRecorder.start();startBtn.disabled=true;stopBtn.disabled=false;playBtn.disabled=true;generateBtn.disabled=true;selectAllBtn.disabled=true;downloadBtn.disabled=true;startBtn.classList.add('recording');timer.textContent='00:00';playbackBar.disabled=true;animateLiveWaveform();state.recordingTimer=setInterval(()=>timer.textContent=formatTimer((performance.now()-state.recordingStartedAt)/1000),120)}catch(e){alert('Microphone permission is required to record your voice.')}}
+function stopRecording(){if(state.mediaRecorder&&state.mediaRecorder.state!=='inactive')state.mediaRecorder.stop();state.isRecording=false;clearInterval(state.recordingTimer);startBtn.classList.remove('recording');stopBtn.disabled=true;startBtn.disabled=false;if(state.stream)state.stream.getTracks().forEach(t=>t.stop())}
+async function finishRecording(){state.audioBlob=new Blob(state.audioChunks,{type:'audio/webm'});if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audioUrl=URL.createObjectURL(state.audioBlob);state.audio.src=state.audioUrl;const arr=await state.audioBlob.arrayBuffer(),ctx=new(window.AudioContext||window.webkitAudioContext)();state.audioBuffer=await ctx.decodeAudioData(arr.slice(0));state.duration=state.audioBuffer.duration;state.cropStart=0;state.cropEnd=state.duration;state.waveformData=extractWaveform(state.audioBuffer,180);timer.textContent=formatTimer(state.duration);playbackBar.max=state.duration.toFixed(2);playbackBar.value=0;playbackBar.disabled=false;playBtn.disabled=false;generateBtn.disabled=false;selectAllBtn.disabled=false;drawWaveform();generateObject(false)}
+function animateLiveWaveform(){if(!state.isRecording||!state.analyser)return;const b=new Uint8Array(state.analyser.fftSize);state.analyser.getByteTimeDomainData(b);let sum=0;for(const v of b){const c=(v-128)/128;sum+=c*c}state.liveData.push(Math.min(1,Math.sqrt(sum/b.length)*5.4+.03));if(state.liveData.length>180)state.liveData.shift();drawWaveform();requestAnimationFrame(animateLiveWaveform)}
+function extractWaveform(audioBuffer,samples){const raw=audioBuffer.getChannelData(0),block=Math.floor(raw.length/samples)||1,data=[];for(let i=0;i<samples;i++){let sum=0,start=i*block;for(let j=0;j<block&&start+j<raw.length;j++)sum+=Math.abs(raw[start+j]);data.push(Math.min(1,Math.sqrt(sum/block)*5.8))}return data}
+function playRecording(){if(!state.audioUrl)return;let s=Number(playbackBar.value||0);if(s>=state.duration-.05||state.audio.ended)s=0;state.audio.pause();state.audio.currentTime=s;state.audio.play();playBtn.textContent='Playing…';tickPlayback()}function tickPlayback(){if(!state.audio.paused){playbackBar.value=state.audio.currentTime.toFixed(2);updatePlayhead();requestAnimationFrame(tickPlayback)}}state.audio.addEventListener('ended',()=>{playBtn.textContent='Play Recording';playbackBar.value=state.duration.toFixed(2);updatePlayhead()});playbackBar.addEventListener('input',()=>{state.audio.currentTime=Number(playbackBar.value||0);updatePlayhead()});
+function waveRatio(e){const r=waveform.getBoundingClientRect();return Math.min(1,Math.max(0,(e.clientX-r.left)/r.width))}function refreshCrop(){drawWaveform();if(state.mesh)generateObject(false)}waveform.addEventListener('pointerdown',e=>{if(!state.duration||state.isRecording)return;state.isDraggingCrop=true;state.dragStartRatio=waveRatio(e);waveform.setPointerCapture(e.pointerId);const t=state.dragStartRatio*state.duration;state.cropStart=t;state.cropEnd=t;refreshCrop()});waveform.addEventListener('pointermove',e=>{if(!state.isDraggingCrop||!state.duration)return;const c=waveRatio(e),a=Math.min(state.dragStartRatio,c)*state.duration,b=Math.max(state.dragStartRatio,c)*state.duration;state.cropStart=Math.max(0,a);state.cropEnd=Math.min(state.duration,Math.max(a+.1,b));refreshCrop()});waveform.addEventListener('pointerup',()=>{state.isDraggingCrop=false;if(state.cropEnd-state.cropStart<.1)state.cropEnd=Math.min(state.duration,state.cropStart+.5);refreshCrop()});selectAllBtn.addEventListener('click',()=>{state.cropStart=0;state.cropEnd=state.duration;refreshCrop()});
+startBtn.onclick=startRecording;stopBtn.onclick=stopRecording;playBtn.onclick=playRecording;
+heightSlider.oninput=widthSlider.oninput=detailSlider.oninput=thicknessSlider.oninput=updateLabelsAndPreview;function updateLabelsAndPreview(){heightValue.textContent=`${heightSlider.value} mm body`;widthValue.textContent=`${widthSlider.value} mm`;detailValue.textContent=`${detailSlider.value} rings`;thicknessValue.textContent=`${Number(thicknessSlider.value).toFixed(1)} mm`;if(state.mesh)generateObject(false)}
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xf5f5f7);const camera=new THREE.PerspectiveCamera(35,1,.1,1000),renderer=new THREE.WebGLRenderer({canvas:$('viewer'),antialias:true,alpha:false});renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.outputEncoding=THREE.sRGBEncoding;renderer.shadowMap.enabled=true;scene.add(new THREE.HemisphereLight(0xffffff,0xdedede,1.6));const key=new THREE.DirectionalLight(0xffffff,3.2);key.position.set(4,6,6);scene.add(key);const fill=new THREE.DirectionalLight(0xffffff,1.6);fill.position.set(-5,2,4);scene.add(fill);const rim=new THREE.DirectionalLight(0xffffff,2.8);rim.position.set(0,5,-6);scene.add(rim);camera.position.set(0,0,185);camera.lookAt(0,0,0);
+function resizeRenderer(){const c=renderer.domElement,p=c.parentElement,w=p.clientWidth,h=p.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();resizeWaveCanvas()}window.addEventListener('resize',resizeRenderer);
+centerViewBtn.onclick=()=>{camera.position.set(0,0,185);camera.lookAt(0,0,0);if(state.mesh){state.mesh.rotation.set(0,0,0);applyOrientation()}stageBadge.textContent=`Drag to rotate 360° • ${capitalize(state.mode)}`};orientationBtn.onclick=()=>{state.orientation=state.orientation==='vertical'?'horizontal':'vertical';orientationBtn.textContent=`Orientation: ${capitalize(state.orientation)}`;generateObject(false,false)};function capitalize(v){return v.charAt(0).toUpperCase()+v.slice(1)}
+function getSelectedAmplitudes(){const detail=Number(detailSlider.value);if(!state.audioBuffer||!state.duration)return Array.from({length:detail},()=>.5);const ch=state.audioBuffer.getChannelData(0),sr=state.audioBuffer.sampleRate,ss=Math.floor(state.cropStart*sr),es=Math.floor(state.cropEnd*sr),len=Math.max(1,es-ss),block=Math.max(1,Math.floor(len/detail)),amps=[];for(let i=0;i<detail;i++){let sum=0,start=ss+i*block;for(let j=0;j<block&&start+j<ch.length;j++)sum+=Math.abs(ch[start+j]);amps.push(Math.min(1,Math.sqrt(sum/block)*7))}smoothArray(amps,2);return amps}function smoothArray(a,p=1){for(let q=0;q<p;q++)for(let i=1;i<a.length-1;i++)a[i]=(a[i-1]+a[i]*2+a[i+1])/4}
+function switchMode(mode){state.mode=mode;pendantModeBtn.classList.toggle('active',mode==='pendant');vaseModeBtn.classList.toggle('active',mode==='vase');modeTitle.textContent=mode==='pendant'?'Create Pendant':'Create Vase';generateBtn.textContent=mode==='pendant'?'Generate 3D Pendant':'Generate 3D Vase';orientationBtn.style.display=mode==='pendant'?'block':'none';thicknessControl.style.display=mode==='vase'?'block':'none';modeHint.textContent=mode==='pendant'?'Record your voice, crop the waveform, then generate a connected necklace-style pendant.':'Record your voice, crop the waveform, then generate a bespoke voice vase. Thickness controls the wall thickness.';generateObject(false)}pendantModeBtn.onclick=()=>switchMode('pendant');vaseModeBtn.onclick=()=>switchMode('vase');
+function resetAll(){state.audio.pause();Object.assign(state,{audioBlob:null,audioBuffer:null,waveformData:[],liveData:[],cropStart:0,cropEnd:0,duration:0});timer.textContent='00:00';cropStartEl.textContent='0.00s';cropEndEl.textContent='0.00s';playbackBar.value=0;playbackBar.max=0;playbackBar.disabled=true;playbackTime.textContent='0.00s / 0.00s';playBtn.disabled=true;generateBtn.disabled=true;downloadBtn.disabled=true;selectAllBtn.disabled=true;heightSlider.value=70;widthSlider.value=32;detailSlider.value=64;thicknessSlider.value=2.4;updateLabelsAndPreview();drawWaveform();generateObject(false)}resetBtn.onclick=resetAll;
+colourSwatches.forEach(btn=>btn.onclick=()=>{state.colour=btn.dataset.colour;colourSwatches.forEach(s=>s.classList.toggle('active',s===btn));const labels={gold:'Champagne gold',silver:'Soft silver',rose:'Blush rose',graphite:'Graphite'};colourValue.textContent=labels[state.colour];generateObject(false)});
+function productMaterial(){const p={gold:{color:0xf4c766,metalness:.72,roughness:.24,clearcoat:1},silver:{color:0xe7ebf0,metalness:.65,roughness:.22,clearcoat:1},rose:{color:0xf2a59a,metalness:.55,roughness:.28,clearcoat:1},graphite:{color:0x303036,metalness:.38,roughness:.32,clearcoat:.85}}[state.colour]||{};return new THREE.MeshPhysicalMaterial({...p,clearcoatRoughness:.08,reflectivity:.75})}
+function pendantGeometry(){const h=Number(heightSlider.value),max=Number(widthSlider.value)/2,amps=getSelectedAmplitudes(),seg=amps.length,rad=96,verts=[],idx=[],yb=-h/2;for(let i=0;i<=seg;i++){const t=i/seg,y=yb+t*h,amp=amps[Math.min(amps.length-1,i)]||.1,sil=Math.sin(Math.PI*t)**.34,rip=.62+amp*.82,lobe=.82+.23*Math.sin(t*Math.PI*8);let r=Math.max(1.3,Math.min(max*1.25,max*sil*rip*lobe));if(i===0||i===seg)r=1.2;for(let j=0;j<rad;j++){const a=j/rad*Math.PI*2;verts.push(Math.cos(a)*r,y,Math.sin(a)*r)}}for(let i=0;i<seg;i++)for(let j=0;j<rad;j++){const a=i*rad+j,b=i*rad+(j+1)%rad,c=(i+1)*rad+j,d=(i+1)*rad+(j+1)%rad;idx.push(a,c,b,b,c,d)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setIndex(idx);g.computeVertexNormals();return g}
+function makeLoopAndConnector(h){const group=new THREE.Group(),mat=productMaterial(),y=h/2,bail=new THREE.Mesh(new THREE.TorusGeometry(7.2,1.55,28,120),mat);bail.scale.set(.68,1.42,1);bail.position.y=y+22.5;group.add(bail);const ring=new THREE.Mesh(new THREE.TorusGeometry(4.8,1.15,24,96),mat);ring.position.y=y+10.8;group.add(ring);const neck=new THREE.Mesh(new THREE.CylinderGeometry(2.5,4.8,7.2,64),mat);neck.position.y=y+3.4;group.add(neck);return group}
+function vaseGeometry(){const h=Number(heightSlider.value),max=Number(widthSlider.value)/2,th=Number(thicknessSlider.value),amps=getSelectedAmplitudes(),seg=amps.length,rad=128,verts=[],idx=[],yb=-h/2;for(let i=0;i<=seg;i++){const t=i/seg,y=yb+t*h,amp=amps[Math.min(amps.length-1,i)]||.5,profile=.48+.34*Math.sin(Math.PI*t)+.1*Math.sin(Math.PI*3*t),rOut=Math.max(5,max*profile+(state.audioBuffer?amp*4.2:0)),rIn=Math.max(1,rOut-th);for(let j=0;j<rad;j++){const a=j/rad*Math.PI*2;verts.push(Math.cos(a)*rOut,y,Math.sin(a)*rOut)}for(let j=0;j<rad;j++){const a=j/rad*Math.PI*2;verts.push(Math.cos(a)*rIn,y,Math.sin(a)*rIn)}}for(let i=0;i<seg;i++){const row=i*rad*2,next=(i+1)*rad*2;for(let j=0;j<rad;j++){const j2=(j+1)%rad,o1=row+j,o2=row+j2,o3=next+j,o4=next+j2,in1=row+rad+j,in2=row+rad+j2,in3=next+rad+j,in4=next+rad+j2;idx.push(o1,o3,o2,o2,o3,o4);idx.push(in2,in3,in1,in2,in4,in3)}}
+// top rim only: connects inner and outer at the top, keeping one opening
+const top=seg*rad*2;for(let j=0;j<rad;j++){const j2=(j+1)%rad;idx.push(top+j,top+j2,top+rad+j);idx.push(top+j2,top+rad+j2,top+rad+j)}
+// solid bottom: one continuous disk across full outer radius, so no hole from top view
+const bottomCenter=verts.length/3;verts.push(0,yb,0);for(let j=0;j<rad;j++){const j2=(j+1)%rad;idx.push(bottomCenter,j,j2)}
+const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setIndex(idx);g.computeVertexNormals();return g}
+function generateObject(showLoading=true,preserveRotation=true){let prev=null;if(state.mesh&&preserveRotation)prev={x:state.mesh.rotation.x,y:state.mesh.rotation.y,z:state.mesh.rotation.z};if(showLoading)loading.style.display='grid';requestAnimationFrame(()=>{if(state.mesh)scene.remove(state.mesh);const h=Number(heightSlider.value),max=Number(widthSlider.value)/2,group=new THREE.Group();let geo=state.mode==='vase'?vaseGeometry():(state.audioBuffer?pendantGeometry():new THREE.CylinderGeometry(max*.72,max*.72,h,96,1));group.add(new THREE.Mesh(geo,productMaterial()));if(state.mode==='pendant'&&state.audioBuffer&&state.orientation==='vertical')group.add(makeLoopAndConnector(h));scene.add(group);state.mesh=group;applyOrientation();if(prev){state.mesh.rotation.x=prev.x;state.mesh.rotation.y=prev.y;if(preserveRotation)state.mesh.rotation.z=prev.z}state.stlText=groupToSTL(group,state.mode==='pendant'?'voice_pendant':'voice_vase');downloadBtn.disabled=false;stageBadge.textContent=`Drag to rotate 360° • ${capitalize(state.mode)}`;if(showLoading)setTimeout(()=>loading.style.display='none',250)})}
+function applyOrientation(){if(!state.mesh)return;state.mesh.rotation.z=state.orientation==='horizontal'?Math.PI/2:0}
+const viewer=$('viewer');viewer.addEventListener('pointerdown',e=>{state.isPointerRotating=true;state.lastPointerX=e.clientX;state.lastPointerY=e.clientY;viewer.setPointerCapture(e.pointerId)});viewer.addEventListener('pointermove',e=>{if(!state.isPointerRotating||!state.mesh)return;state.mesh.rotation.y+=(e.clientX-state.lastPointerX)*.01;state.mesh.rotation.x+=(e.clientY-state.lastPointerY)*.01;state.lastPointerX=e.clientX;state.lastPointerY=e.clientY});viewer.addEventListener('pointerup',()=>state.isPointerRotating=false);
+function groupToSTL(group,name){group.updateMatrixWorld(true);let stl=`solid ${name}\n`;group.traverse(obj=>{if(!obj.isMesh)return;const geom=obj.geometry.clone();geom.applyMatrix4(obj.matrixWorld);const pos=geom.getAttribute('position'),ind=geom.index,n=new THREE.Vector3(),a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),faces=ind?ind.count/3:pos.count/3;for(let i=0;i<faces;i++){const ia=ind?ind.getX(i*3):i*3,ib=ind?ind.getX(i*3+1):i*3+1,ic=ind?ind.getX(i*3+2):i*3+2;a.fromBufferAttribute(pos,ia);b.fromBufferAttribute(pos,ib);c.fromBufferAttribute(pos,ic);n.crossVectors(new THREE.Vector3().subVectors(b,a),new THREE.Vector3().subVectors(c,a)).normalize();stl+=` facet normal ${n.x} ${n.y} ${n.z}\n  outer loop\n   vertex ${a.x} ${a.y} ${a.z}\n   vertex ${b.x} ${b.y} ${b.z}\n   vertex ${c.x} ${c.y} ${c.z}\n  endloop\n endfacet\n`}});return stl+`endsolid ${name}`}
+function downloadSTL(){if(!state.stlText)return;const blob=new Blob([state.stlText],{type:'model/stl'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=state.mode==='pendant'?'voice-pendant.stl':'voice-vase.stl';a.click();URL.revokeObjectURL(a.href)}generateBtn.onclick=()=>generateObject(true);downloadBtn.onclick=downloadSTL;
+function animate(){requestAnimationFrame(animate);if(state.mesh&&!state.isPointerRotating)state.mesh.rotation.y+=.0018;renderer.render(scene,camera)}updateLabelsAndPreview();resizeRenderer();generateObject(false);animate();
 </script>
 </body>
 </html>
