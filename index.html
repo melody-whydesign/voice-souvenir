@@ -226,7 +226,11 @@
       playbackAudio = new Audio(recordedAudioUrl);
       playbackAudio.currentTime = getPlaybackStartTime();
 
-      playbackAudio.onended = () => stopPlayback(false);
+      playbackAudio.onended = () => {
+        stopPlayback();
+        playbackInput.value = 0;
+        updatePlaybackReadout(0);
+      };
       playbackAudio.play();
       playBtn.textContent = 'Stop Playback';
 
