@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Voice Ornament 3D Generator</title>
+  <title>Voice Pendant 3D Generator</title>
   <style>
     body {
       margin: 0;
@@ -58,24 +58,54 @@
       font-weight: bold;
     }
 
-    input {
+    input[type="range"] {
       width: 100%;
-      padding: 10px;
-      margin-top: 6px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+      margin-top: 8px;
+    }
+
+    .option-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 15px;
+    }
+
+    .option-row input {
+      width: auto;
+    }
+
+    .timer {
+      font-size: 34px;
+      font-weight: bold;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .meter-wrap {
+      height: 14px;
+      background: #ddd;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+
+    .meter {
+      height: 100%;
+      width: 0%;
+      background: #222;
+      transition: width 0.06s linear;
     }
 
     #viewer {
       height: 680px;
       border-radius: 16px;
       overflow: hidden;
-      background: #ddd;
+      background: #eeeae3;
     }
 
     .status {
-      margin-top: 12px;
+      margin-top: 16px;
       font-size: 14px;
       color: #555;
       line-height: 1.5;
@@ -93,17 +123,21 @@
 </head>
 <body>
   <header>
-    <h1>Voice Ornament 3D Generator</h1>
-    <p>Record a voice and transform it into a vertical printable ornament.</p>
+    <h1>Voice Pendant 3D Generator</h1>
+    <p>Record a voice and transform it into a continuous printable pendant.</p>
   </header>
 
   <main>
     <section class="panel">
-      <h2>Create Ornament</h2>
+      <h2>Create Pendant</h2>
 
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop Recording</button>
-      <button id="generateBtn" disabled>Generate 3D Ornament</button>
+
+      <div class="timer" id="timer">00:00</div>
+      <div class="meter-wrap"><div class="meter" id="meter"></div></div>
+
+      <button id="generateBtn" disabled>Generate 3D Pendant</button>
       <button id="downloadBtn" disabled>Download STL</button>
 
       <label for="heightInput">Object height</label>
@@ -113,13 +147,19 @@
       <input id="radiusInput" type="range" min="10" max="34" value="24" />
 
       <label for="detailInput">Voice detail</label>
-      <input id="detailInput" type="range" min="40" max="140" value="90" />
+      <input id="detailInput" type="range" min="60" max="180" value="120" />
 
       <label for="ringInput">Ring strength</label>
-      <input id="ringInput" type="range" min="0" max="20" value="12" />
+      <input id="ringInput" type="range" min="0" max="20" value="11" />
+
+      <label>Select ornament parts</label>
+      <div class="option-row"><input id="topLoopCheck" type="checkbox" checked /> <span>Top hanging loop</span></div>
+      <div class="option-row"><input id="wideDiscCheck" type="checkbox" checked /> <span>Wide circular discs</span></div>
+      <div class="option-row"><input id="voiceRidgeCheck" type="checkbox" checked /> <span>Voice ridges</span></div>
+      <div class="option-row"><input id="bottomDropCheck" type="checkbox" checked /> <span>Bottom drop</span></div>
 
       <div class="status" id="status">
-        Ready. Record 3 to 8 seconds of voice. The audio will generate a sculptural vertical form.
+        Ready. Record 3 to 8 seconds. The audio will generate a one-piece pendant.
       </div>
     </section>
 
@@ -147,22 +187,33 @@
     const generateBtn = document.getElementById('generateBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const statusEl = document.getElementById('status');
+    const timerEl = document.getElementById('timer');
+    const meterEl = document.getElementById('meter');
     const heightInput = document.getElementById('heightInput');
     const radiusInput = document.getElementById('radiusInput');
     const detailInput = document.getElementById('detailInput');
     const ringInput = document.getElementById('ringInput');
+    const topLoopCheck = document.getElementById('topLoopCheck');
+    const wideDiscCheck = document.getElementById('wideDiscCheck');
+    const voiceRidgeCheck = document.getElementById('voiceRidgeCheck');
+    const bottomDropCheck = document.getElementById('bottomDropCheck');
     const viewer = document.getElementById('viewer');
 
     let mediaRecorder;
     let audioChunks = [];
     let audioBuffer = null;
     let currentObject = null;
+    let recordingStart = 0;
+    let timerInterval = null;
+    let audioContextLive = null;
+    let analyser = null;
+    let meterAnimation = null;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf4f1ec);
+    scene.background = new THREE.Color(0xeeeae3);
 
     const camera = new THREE.PerspectiveCamera(45, viewer.clientWidth / viewer.clientHeight, 0.1, 3000);
-    camera.position.set(110, -180, 120);
+    camera.position.set(95, -190, 110);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(viewer.clientWidth, viewer.clientHeight);
@@ -170,7 +221,6 @@
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.target.set(0, 0, 65);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
@@ -186,6 +236,7 @@
     scene.add(grid);
 
     animate();
+    buildDefaultPendant();
 
     function animate() {
       requestAnimationFrame(animate);
@@ -203,21 +254,34 @@
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream);
 
+        audioContextLive = new AudioContext();
+        const source = audioContextLive.createMediaStreamSource(stream);
+        analyser = audioContextLive.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        updateMeter();
+
+        mediaRecorder = new MediaRecorder(stream);
         mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
 
         mediaRecorder.onstop = async () => {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
           const arrayBuffer = await audioBlob.arrayBuffer();
-          const audioContext = new AudioContext();
-          audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+          const decodeContext = new AudioContext();
+          audioBuffer = await decodeContext.decodeAudioData(arrayBuffer);
+
           stream.getTracks().forEach(track => track.stop());
+          stopRecordingUI();
+
           generateBtn.disabled = false;
-          statusEl.textContent = 'Recording complete. Click Generate 3D Ornament.';
+          statusEl.textContent = 'Recording complete. Click Generate 3D Pendant.';
         };
 
         mediaRecorder.start();
+        recordingStart = Date.now();
+        timerInterval = setInterval(updateTimer, 200);
+
         startBtn.disabled = true;
         stopBtn.disabled = false;
         generateBtn.disabled = true;
@@ -225,23 +289,21 @@
         statusEl.textContent = 'Recording... speak clearly.';
       } catch (error) {
         console.error(error);
-        statusEl.textContent = 'Microphone failed. Use Chrome/Edge and open this through GitHub Pages, Netlify, or Live Server.';
+        statusEl.textContent = 'Microphone failed. Please allow microphone permission and use Chrome or Edge.';
       }
     };
 
     stopBtn.onclick = () => {
       if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
-        startBtn.disabled = false;
-        stopBtn.disabled = true;
       }
     };
 
     generateBtn.onclick = () => {
       if (!audioBuffer) return;
-      buildVoiceOrnament(audioBuffer);
+      buildVoicePendant(audioBuffer);
       downloadBtn.disabled = false;
-      statusEl.textContent = 'Ornament generated. Drag to rotate. Download STL when ready.';
+      statusEl.textContent = 'One-piece pendant generated. Drag to rotate. Download STL when ready.';
     };
 
     downloadBtn.onclick = () => {
@@ -251,165 +313,176 @@
       const blob = new Blob([stlString], { type: 'text/plain' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = 'voice-ornament.stl';
+      link.download = 'voice-pendant.stl';
       link.click();
     };
 
-    function buildVoiceOrnament(buffer) {
+    [heightInput, radiusInput, detailInput, ringInput, topLoopCheck, wideDiscCheck, voiceRidgeCheck, bottomDropCheck].forEach(el => {
+      el.addEventListener('input', () => {
+        if (audioBuffer) buildVoicePendant(audioBuffer);
+        else buildDefaultPendant();
+      });
+    });
+
+    function updateTimer() {
+      const seconds = Math.floor((Date.now() - recordingStart) / 1000);
+      const mm = String(Math.floor(seconds / 60)).padStart(2, '0');
+      const ss = String(seconds % 60).padStart(2, '0');
+      timerEl.textContent = `${mm}:${ss}`;
+    }
+
+    function updateMeter() {
+      if (!analyser) return;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(data);
+      const avg = data.reduce((a, b) => a + b, 0) / data.length;
+      const level = Math.min(100, avg * 1.8);
+      meterEl.style.width = `${level}%`;
+      meterAnimation = requestAnimationFrame(updateMeter);
+    }
+
+    function stopRecordingUI() {
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      clearInterval(timerInterval);
+      cancelAnimationFrame(meterAnimation);
+      meterEl.style.width = '0%';
+      if (audioContextLive) audioContextLive.close();
+      audioContextLive = null;
+      analyser = null;
+    }
+
+    function buildDefaultPendant() {
+      const fake = Array.from({ length: Number(detailInput.value) }, (_, i) => {
+        const t = i / (Number(detailInput.value) - 1);
+        return 0.45 + 0.35 * Math.sin(t * Math.PI * 5) * Math.sin(t * Math.PI);
+      });
+      buildPendantFromWave(fake);
+    }
+
+    function buildVoicePendant(buffer) {
+      const detail = Number(detailInput.value);
+      const waveform = smoothArray(extractWaveform(buffer, detail), 5);
+      buildPendantFromWave(waveform);
+    }
+
+    function buildPendantFromWave(waveform) {
       if (currentObject) scene.remove(currentObject);
 
       currentObject = new THREE.Group();
 
       const height = Number(heightInput.value);
       const maxRadius = Number(radiusInput.value);
-      const detail = Number(detailInput.value);
       const ringStrength = Number(ringInput.value);
 
-      const waveform = smoothArray(extractWaveform(buffer, detail), 4);
-
-      const silver = new THREE.MeshStandardMaterial({
-        color: 0xd8d8d8,
-        metalness: 0.75,
-        roughness: 0.23
+      const material = new THREE.MeshStandardMaterial({
+        color: 0xd7d7d7,
+        metalness: 0.72,
+        roughness: 0.22
       });
 
-      const darkSilver = new THREE.MeshStandardMaterial({
-        color: 0x9c9c9c,
-        metalness: 0.8,
-        roughness: 0.28
-      });
-
-      const mainMesh = createLatheVoiceBody(waveform, height, maxRadius, ringStrength, silver);
+      const mainMesh = createOnePieceLathe(waveform, height, maxRadius, ringStrength, material);
       currentObject.add(mainMesh);
 
-      addOrnamentalDiscs(currentObject, waveform, height, maxRadius, ringStrength, darkSilver);
-      addTopLoop(currentObject, height, silver);
-      addBottomFinial(currentObject, silver);
+      if (topLoopCheck.checked) addConnectedTopLoop(currentObject, height, material);
 
-      currentObject.rotation.x = -Math.PI / 2;
       scene.add(currentObject);
       frameObject(currentObject);
     }
 
-    function createLatheVoiceBody(waveform, height, maxRadius, ringStrength, material) {
+    function createOnePieceLathe(waveform, height, maxRadius, ringStrength, material) {
       const points = [];
       const count = waveform.length;
+      const includeDiscs = wideDiscCheck.checked;
+      const includeVoice = voiceRidgeCheck.checked;
+      const includeBottom = bottomDropCheck.checked;
 
       for (let i = 0; i < count; i++) {
         const t = i / (count - 1);
-        const z = t * height;
+        const y = -height / 2 + t * height;
 
-        const baseProfile = 4.5 + Math.sin(t * Math.PI) * 4;
-        const voiceBulge = waveform[i] * maxRadius * 0.55;
+        let radius = 4.2;
 
-        const ringPulse = Math.pow(Math.max(0, Math.sin(t * Math.PI * 9)), 18) * ringStrength;
-        const necking = Math.pow(Math.abs(Math.sin(t * Math.PI * 4)), 1.5) * 2.2;
+        // Main slender body.
+        radius += Math.sin(t * Math.PI) * 3.5;
 
-        let radius = baseProfile + voiceBulge + ringPulse - necking;
+        // Voice imprint controls the organic swelling.
+        if (includeVoice) {
+          radius += waveform[i] * maxRadius * 0.42;
+          radius += Math.pow(Math.max(0, Math.sin(t * Math.PI * 18)), 12) * waveform[i] * 4.5;
+        }
 
-        // Narrow top and bottom so it feels like a hanging ornament.
-        if (t < 0.08) radius *= t / 0.08;
-        if (t > 0.94) radius *= (1 - t) / 0.06;
+        // Large pendant discs are blended into the same lathe surface.
+        if (includeDiscs) {
+          radius += gaussian(t, 0.22, 0.030) * (maxRadius * 0.85 + ringStrength * 0.7);
+          radius += gaussian(t, 0.43, 0.026) * (maxRadius * 0.70 + ringStrength * 0.55);
+          radius += gaussian(t, 0.66, 0.030) * (maxRadius * 0.88 + ringStrength * 0.75);
+          radius += gaussian(t, 0.82, 0.025) * (maxRadius * 0.58 + ringStrength * 0.35);
+        }
 
-        radius = Math.max(1.5, radius);
-        points.push(new THREE.Vector2(radius, z));
+        // Fine decorative rings, also part of the same skin.
+        radius += Math.pow(Math.max(0, Math.sin(t * Math.PI * 10)), 20) * ringStrength * 0.35;
+
+        // Necked sections between discs.
+        radius -= gaussian(t, 0.34, 0.04) * 4.5;
+        radius -= gaussian(t, 0.55, 0.035) * 4.0;
+        radius -= gaussian(t, 0.75, 0.03) * 3.2;
+
+        // Top taper connects to loop stem.
+        if (t > 0.93) radius *= (1 - t) / 0.07;
+
+        // Bottom pendant drop.
+        if (includeBottom) {
+          if (t < 0.08) radius *= Math.sin((t / 0.08) * Math.PI * 0.5);
+          radius += gaussian(t, 0.055, 0.018) * 5.2;
+          radius += gaussian(t, 0.015, 0.012) * 2.0;
+        } else if (t < 0.06) {
+          radius *= t / 0.06;
+        }
+
+        radius = Math.max(0.9, radius);
+        points.push(new THREE.Vector2(radius, y));
       }
 
-      const geometry = new THREE.LatheGeometry(points, 128);
+      // Close top and bottom cleanly for STL.
+      points.unshift(new THREE.Vector2(0.01, -height / 2));
+      points.push(new THREE.Vector2(0.01, height / 2));
+
+      const geometry = new THREE.LatheGeometry(points, 160);
       geometry.computeVertexNormals();
       return new THREE.Mesh(geometry, material);
     }
 
-    function addOrnamentalDiscs(group, waveform, height, maxRadius, ringStrength, material) {
-      const discPositions = [0.22, 0.43, 0.66, 0.82];
+    function addConnectedTopLoop(group, height, material) {
+      // Stem touches the pendant top, so visually and physically it becomes one pendant part.
+      const stem = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.2, 2.8, 15, 64),
+        material
+      );
+      stem.position.y = height / 2 + 6.5;
+      group.add(stem);
 
-      discPositions.forEach((t, index) => {
-        const z = t * height;
-        const amp = waveform[Math.floor(t * (waveform.length - 1))] || 0.5;
-        const radius = maxRadius * (0.45 + amp * 0.8) + ringStrength * 0.7;
-        const thickness = index === 1 || index === 2 ? 3.2 : 2.2;
-
-        const disc = new THREE.Mesh(
-          new THREE.CylinderGeometry(radius, radius * 0.72, thickness, 128),
-          material
-        );
-        disc.rotation.x = Math.PI / 2;
-        disc.position.z = z;
-        group.add(disc);
-
-        const lipTop = new THREE.Mesh(
-          new THREE.TorusGeometry(radius * 0.98, 0.9, 12, 128),
-          material
-        );
-        lipTop.position.z = z + thickness / 2;
-        group.add(lipTop);
-
-        const lipBottom = new THREE.Mesh(
-          new THREE.TorusGeometry(radius * 0.78, 0.65, 12, 128),
-          material
-        );
-        lipBottom.position.z = z - thickness / 2;
-        group.add(lipBottom);
-      });
-    }
-
-    function addTopLoop(group, height, material) {
       const loop = new THREE.Mesh(
-        new THREE.TorusGeometry(7, 1.4, 18, 80),
+        new THREE.TorusGeometry(8, 1.7, 24, 96),
         material
       );
       loop.rotation.x = Math.PI / 2;
-      loop.position.z = height + 10;
+      loop.position.y = height / 2 + 18;
       group.add(loop);
-
-      const connector = new THREE.Mesh(
-        new THREE.CylinderGeometry(2.1, 2.1, 16, 48),
-        material
-      );
-      connector.rotation.x = Math.PI / 2;
-      connector.position.z = height + 2;
-      group.add(connector);
-    }
-
-    function addBottomFinial(group, material) {
-      const drop1 = new THREE.Mesh(
-        new THREE.ConeGeometry(5, 12, 64),
-        material
-      );
-      drop1.rotation.x = Math.PI;
-      drop1.position.z = -8;
-      group.add(drop1);
-
-      const bead = new THREE.Mesh(
-        new THREE.SphereGeometry(4.2, 48, 24),
-        material
-      );
-      bead.position.z = -15;
-      group.add(bead);
-
-      const tip = new THREE.Mesh(
-        new THREE.ConeGeometry(3, 9, 64),
-        material
-      );
-      tip.rotation.x = Math.PI;
-      tip.position.z = -22;
-      group.add(tip);
     }
 
     function extractWaveform(buffer, sampleCount) {
       const channel = buffer.getChannelData(0);
-      const blockSize = Math.floor(channel.length / sampleCount);
+      const blockSize = Math.max(1, Math.floor(channel.length / sampleCount));
       const samples = [];
 
       for (let i = 0; i < sampleCount; i++) {
         let sum = 0;
         const start = i * blockSize;
-
         for (let j = 0; j < blockSize; j++) {
           const value = channel[start + j] || 0;
           sum += value * value;
         }
-
         samples.push(Math.sqrt(sum / blockSize));
       }
 
@@ -429,6 +502,10 @@
       return result;
     }
 
+    function gaussian(x, center, width) {
+      return Math.exp(-Math.pow(x - center, 2) / (2 * width * width));
+    }
+
     function frameObject(object) {
       const box = new THREE.Box3().setFromObject(object);
       const center = box.getCenter(new THREE.Vector3());
@@ -436,7 +513,7 @@
       const largest = Math.max(size.x, size.y, size.z);
 
       controls.target.copy(center);
-      camera.position.set(center.x + largest * 0.8, center.y - largest * 1.25, center.z + largest * 0.85);
+      camera.position.set(center.x + largest * 0.8, center.y - largest * 1.5, center.z + largest * 0.7);
       camera.lookAt(center);
     }
   </script>
