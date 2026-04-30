@@ -220,6 +220,26 @@
     }
 
     .control { margin: 18px 0; }
+
+    .colour-options {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .colour-swatch {
+      height: 38px;
+      border: 2px solid rgba(0,0,0,.08);
+      border-radius: 999px;
+      background: var(--swatch);
+      cursor: pointer;
+      box-shadow: inset 0 1px rgba(255,255,255,.45), 0 5px 16px rgba(0,0,0,.08);
+      transition: transform .18s ease, border-color .18s ease;
+    }
+
+    .colour-swatch:hover { transform: translateY(-1px); }
+    .colour-swatch.active { border-color: var(--blue); }
     .control label {
       display: flex;
       justify-content: space-between;
@@ -359,6 +379,17 @@
         <input id="thicknessSlider" type="range" min="1.2" max="6" step="0.1" value="2.4" />
       </div>
 
+      <div class="control">
+        <label>Colour <span id="colourValue">Silver</span></label>
+        <div class="colour-options">
+          <button class="colour-swatch active" data-colour="silver" style="--swatch:#777777" aria-label="Silver"></button>
+          <button class="colour-swatch" data-colour="gold" style="--swatch:#c99a3d" aria-label="Gold"></button>
+          <button class="colour-swatch" data-colour="black" style="--swatch:#111111" aria-label="Black"></button>
+          <button class="colour-swatch" data-colour="white" style="--swatch:#f3f0e8" aria-label="White"></button>
+          <button class="colour-swatch" data-colour="rose" style="--swatch:#b76e79" aria-label="Rose gold"></button>
+        </div>
+      </div>
+
       <p class="hint" id="modeHint">Record your voice, drag across the waveform to choose the exact sound segment, then generate a single connected necklace-style pendant. The top loop stays fixed while only the pendant body changes height.</p>
     </aside>
 
@@ -397,6 +428,7 @@
       stlText: '',
       mode: 'pendant',
       orientation: 'vertical',
+      colour: 'silver',
       isPointerRotating: false,
       lastPointerX: 0,
       lastPointerY: 0,
@@ -433,6 +465,8 @@
     const widthValue = $('widthValue');
     const detailValue = $('detailValue');
     const thicknessValue = $('thicknessValue');
+    const colourValue = $('colourValue');
+    const colourSwatches = document.querySelectorAll('.colour-swatch');
     const loading = $('loading');
     const stageBadge = $('stageBadge');
 
@@ -843,10 +877,23 @@
       widthSlider.value = 32;
       detailSlider.value = 64;
       thicknessSlider.value = 2.4;
+      state.colour = 'silver';
+      colourSwatches.forEach(s => s.classList.toggle('active', s.dataset.colour === 'silver'));
+      colourValue.textContent = 'Silver';
       updateLabelsAndPreview();
       drawWaveform();
       generateObject(false);
     }
+
+    colourSwatches.forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.colour = btn.dataset.colour;
+        colourSwatches.forEach(s => s.classList.toggle('active', s === btn));
+        const labels = { silver: 'Silver', gold: 'Gold', black: 'Black', white: 'White', rose: 'Rose gold' };
+        colourValue.textContent = labels[state.colour];
+        generateObject(false);
+      });
+    });
 
     resetBtn.addEventListener('click', resetAll);
 
@@ -921,10 +968,18 @@
     }
 
     function metalMaterial() {
+      const palette = {
+        silver: { color: 0x777777, metalness: .88, roughness: .22, label: 'Silver' },
+        gold: { color: 0xc99a3d, metalness: .9, roughness: .2, label: 'Gold' },
+        black: { color: 0x111111, metalness: .72, roughness: .3, label: 'Black' },
+        white: { color: 0xf3f0e8, metalness: .25, roughness: .38, label: 'White' },
+        rose: { color: 0xb76e79, metalness: .86, roughness: .24, label: 'Rose gold' }
+      };
+      const selected = palette[state.colour] || palette.silver;
       return new THREE.MeshStandardMaterial({
-        color: 0x777777,
-        metalness: .88,
-        roughness: .22,
+        color: selected.color,
+        metalness: selected.metalness,
+        roughness: selected.roughness,
         envMapIntensity: 1
       });
     }
@@ -980,9 +1035,19 @@
 
       const bottomCenterIndex = vertices.length / 3;
       vertices.push(0, yBottom, 0);
+
+      // CLOSE bottom completely (no hole)
       for (let j = 0; j < radialSegments; j++) {
         const j2 = (j + 1) % radialSegments;
-        indices.push(bottomCenterIndex, j2, j);
+        // seal using OUTER ring only
+        indices.push(bottomCenterIndex, j, j2);
+      }
+
+      // seal inner wall so it doesn't form a tunnel
+      for (let j = 0; j < radialSegments; j++) {
+        const j2 = (j + 1) % radialSegments;
+        const innerStart = radialSegments;
+        indices.push(innerStart + j, innerStart + j2, bottomCenterIndex);
       }
 
       const geometry = new THREE.BufferGeometry();
