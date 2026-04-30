@@ -223,7 +223,7 @@
 
     .colour-options {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 10px;
       margin-top: 10px;
     }
@@ -386,7 +386,7 @@
           <button class="colour-swatch active" data-colour="silver" style="--swatch:#777777" aria-label="Silver"></button>
           <button class="colour-swatch" data-colour="gold" style="--swatch:#c99a3d" aria-label="Gold"></button>
           <button class="colour-swatch" data-colour="black" style="--swatch:#111111" aria-label="Black"></button>
-          <button class="colour-swatch" data-colour="white" style="--swatch:#f3f0e8" aria-label="White"></button>
+          
           <button class="colour-swatch" data-colour="rose" style="--swatch:#b76e79" aria-label="Rose gold"></button>
         </div>
       </div>
@@ -970,11 +970,10 @@
 
     function metalMaterial() {
       const palette = {
-        silver: { color: 0xbfc3c9, metalness: .95, roughness: .18, label: 'Silver' },
-        gold: { color: 0xd4af37, metalness: .98, roughness: .22, label: 'Gold' },
-        black: { color: 0x1a1a1a, metalness: .35, roughness: .55, label: 'Black (matte)' },
-        white: { color: 0xf5f2e9, metalness: .1, roughness: .65, label: 'Ceramic white' },
-        rose: { color: 0xb76e79, metalness: .9, roughness: .25, label: 'Rose gold' }
+        silver: { color: 0xcfd2d6, metalness: .98, roughness: .18, label: 'Polished silver' },
+        gold: { color: 0xd6b25e, metalness: .99, roughness: .2, label: 'Luxury gold' },
+        black: { color: 0x2b2b2b, metalness: .55, roughness: .45, label: 'Black coated' },
+        rose: { color: 0xc48a7a, metalness: .96, roughness: .22, label: 'Rose gold' }
       };
       const selected = palette[state.colour] || palette.silver;
       return new THREE.MeshStandardMaterial({
