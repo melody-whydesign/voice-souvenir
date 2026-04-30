@@ -34,6 +34,7 @@
 
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop Recording</button>
+      <button id="playBtn" disabled>Play Recording</button>
 
       <div class="timer" id="timer">00:00</div>
       <canvas id="waveCanvas" width="640" height="160"></canvas>
@@ -51,7 +52,7 @@
       <button id="generateBtn" disabled>Generate 3D Pendant</button>
       <button id="downloadBtn" disabled>Download STL</button>
 
-      <label for="heightInput">Object height</label>
+      <label for="heightInput">Pendant body height</label>
       <input id="heightInput" type="range" min="90" max="180" value="140" />
 
       <label for="radiusInput">Voice width effect</label>
@@ -84,6 +85,7 @@
 
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
+    const playBtn = document.getElementById('playBtn');
     const generateBtn = document.getElementById('generateBtn');
     const downloadBtn = document.getElementById('downloadBtn');
     const statusEl = document.getElementById('status');
@@ -101,6 +103,8 @@
     const viewer = document.getElementById('viewer');
 
     let mediaRecorder, audioBuffer, currentObject, timerInterval, audioContextLive, analyser, waveAnimation;
+    let recordedAudioUrl = null;
+    let playbackAudio = null;
     let audioChunks = [];
     let recordingStart = 0;
     let liveWaveHistory = [];
@@ -164,6 +168,8 @@
 
         mediaRecorder.onstop = async () => {
           const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          if (recordedAudioUrl) URL.revokeObjectURL(recordedAudioUrl);
+          recordedAudioUrl = URL.createObjectURL(audioBlob);
           const arrayBuffer = await audioBlob.arrayBuffer();
           const decodeContext = new AudioContext();
           audioBuffer = await decodeContext.decodeAudioData(arrayBuffer);
@@ -174,7 +180,8 @@
           drawFinalWaveform(audioBuffer);
 
           generateBtn.disabled = false;
-          statusEl.textContent = 'Recording complete. Drag the crop sliders to select the part you want to use.';
+          playBtn.disabled = false;
+          statusEl.textContent = 'Recording complete. You can listen, crop the section, then generate the pendant.';
         };
 
         mediaRecorder.start();
@@ -184,6 +191,7 @@
 
         startBtn.disabled = true;
         stopBtn.disabled = false;
+        playBtn.disabled = true;
         generateBtn.disabled = true;
         downloadBtn.disabled = true;
         statusEl.textContent = 'Recording... you should see the waveform moving.';
@@ -195,6 +203,24 @@
 
     stopBtn.onclick = () => {
       if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+    };
+
+    playBtn.onclick = () => {
+      if (!recordedAudioUrl) return;
+
+      if (playbackAudio && !playbackAudio.paused) {
+        playbackAudio.pause();
+        playbackAudio.currentTime = 0;
+        playBtn.textContent = 'Play Recording';
+        return;
+      }
+
+      playbackAudio = new Audio(recordedAudioUrl);
+      playbackAudio.onended = () => {
+        playBtn.textContent = 'Play Recording';
+      };
+      playbackAudio.play();
+      playBtn.textContent = 'Stop Playback';
     };
 
     generateBtn.onclick = () => {
@@ -431,6 +457,7 @@
     }
 
     function addVerticalTopLoop(group, height, material) {
+      // The top loop has fixed dimensions. Changing pendant body height only moves it up/down to stay connected.
       const connector = new THREE.Mesh(new THREE.CylinderGeometry(2.8, 3.4, 12, 64), material);
       connector.position.y = height / 2 + 5.5;
       group.add(connector);
