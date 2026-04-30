@@ -627,6 +627,7 @@
       state.cropStart = t;
       state.cropEnd = t;
       drawWaveform();
+      if (state.mesh) generatePendant(false);
     });
 
     waveform.addEventListener('pointermove', e => {
@@ -637,18 +638,21 @@
       state.cropStart = Math.max(0, a);
       state.cropEnd = Math.min(state.duration, Math.max(a + .1, b));
       drawWaveform();
+      if (state.mesh) generatePendant(false);
     });
 
     waveform.addEventListener('pointerup', () => {
       state.isDraggingCrop = false;
       if (state.cropEnd - state.cropStart < .1) state.cropEnd = Math.min(state.duration, state.cropStart + .5);
       drawWaveform();
+      if (state.mesh) generatePendant(false);
     });
 
     selectAllBtn.addEventListener('click', () => {
       state.cropStart = 0;
       state.cropEnd = state.duration;
       drawWaveform();
+      if (state.mesh) generatePendant(false);
     });
 
     startBtn.addEventListener('click', startRecording);
@@ -720,7 +724,7 @@
 
     function getSelectedAmplitudes() {
       const detail = Number(detailSlider.value);
-      if (!state.audioBuffer || !state.duration) return Array.from({ length: detail }, (_, i) => .35 + .25 * Math.sin(i * .55));
+      if (!state.audioBuffer || !state.duration) return Array.from({ length: detail }, () => .5);
       const channel = state.audioBuffer.getChannelData(0);
       const sampleRate = state.audioBuffer.sampleRate;
       const startSample = Math.floor(state.cropStart * sampleRate);
@@ -792,19 +796,24 @@
       const mat = metalMaterial();
       const yTop = bodyHeight / 2;
 
-      const connector = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 5.2, 10, 64), mat);
-      connector.position.y = yTop + 4.8;
-      group.add(connector);
+      // Elegant vertical hoop inspired by a minimal necklace bail.
+      const bail = new THREE.Mesh(new THREE.TorusGeometry(7.2, 1.55, 28, 120), mat);
+      bail.scale.set(.68, 1.42, 1);
+      bail.position.y = yTop + 22.5;
+      group.add(bail);
 
-      // Vertical necklace loop: upright like a bail, welded into the pendant body.
-      const loop = new THREE.Mesh(new THREE.TorusGeometry(9.2, 2.1, 24, 96), mat);
-      loop.rotation.y = Math.PI / 2;
-      loop.position.y = yTop + 16.2;
-      group.add(loop);
+      // Small jump ring between the bail and pendant, also vertical and connected.
+      const jumpRing = new THREE.Mesh(new THREE.TorusGeometry(4.8, 1.15, 24, 96), mat);
+      jumpRing.position.y = yTop + 10.8;
+      group.add(jumpRing);
 
-      const weld = new THREE.Mesh(new THREE.SphereGeometry(4.2, 48, 24), mat);
-      weld.position.y = yTop + 9.4;
-      weld.scale.set(1, .62, 1);
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 4.8, 7.2, 64), mat);
+      neck.position.y = yTop + 3.4;
+      group.add(neck);
+
+      const weld = new THREE.Mesh(new THREE.SphereGeometry(3.7, 48, 24), mat);
+      weld.position.y = yTop + 6.8;
+      weld.scale.set(.9, .54, .9);
       group.add(weld);
       return group;
     }
@@ -824,9 +833,13 @@
         if (state.mesh) scene.remove(state.mesh);
         const bodyHeight = Number(heightSlider.value);
         const group = new THREE.Group();
-        const body = new THREE.Mesh(pendantGeometry(), metalMaterial());
+        const maxWidth = Number(widthSlider.value) / 2;
+        const bodyGeometry = state.audioBuffer
+          ? pendantGeometry()
+          : new THREE.CylinderGeometry(maxWidth * .72, maxWidth * .72, bodyHeight, 96, 1);
+        const body = new THREE.Mesh(bodyGeometry, metalMaterial());
         group.add(body);
-        group.add(makeLoopAndConnector(bodyHeight));
+        if (state.audioBuffer && state.orientation === 'vertical') group.add(makeLoopAndConnector(bodyHeight));
         scene.add(group);
         state.mesh = group;
         applyOrientation();
