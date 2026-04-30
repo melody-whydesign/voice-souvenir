@@ -36,6 +36,10 @@
       <button id="stopBtn" disabled>Stop Recording</button>
       <button id="playBtn" disabled>Play Recording</button>
 
+      <label for="playbackInput">Playback position</label>
+      <input id="playbackInput" type="range" min="0" max="1000" value="0" disabled />
+      <div class="cropReadout" id="playbackReadout">Playback: 0.0s / 0.0s</div>
+
       <div class="timer" id="timer">00:00</div>
       <canvas id="waveCanvas" width="640" height="160"></canvas>
 
@@ -61,8 +65,6 @@
       <label for="detailInput">Voice detail</label>
       <input id="detailInput" type="range" min="80" max="220" value="160" />
 
-      <label for="ringInput">Ring strength</label>
-      <input id="ringInput" type="range" min="0" max="20" value="9" />
 
       <div class="status" id="status">
         Record your voice, crop the best part, then generate your 3D pendant.
@@ -99,12 +101,14 @@
     const heightInput = document.getElementById('heightInput');
     const radiusInput = document.getElementById('radiusInput');
     const detailInput = document.getElementById('detailInput');
-    const ringInput = document.getElementById('ringInput');
+    const playbackInput = document.getElementById('playbackInput');
+    const playbackReadout = document.getElementById('playbackReadout');
     const viewer = document.getElementById('viewer');
 
     let mediaRecorder, audioBuffer, currentObject, timerInterval, audioContextLive, analyser, waveAnimation;
     let recordedAudioUrl = null;
     let playbackAudio = null;
+    let playbackTimer = null;
     let audioChunks = [];
     let recordingStart = 0;
     let liveWaveHistory = [];
@@ -181,6 +185,9 @@
 
           generateBtn.disabled = false;
           playBtn.disabled = false;
+          playbackInput.disabled = false;
+          playbackInput.value = 0;
+          updatePlaybackReadout(0);
           statusEl.textContent = 'Recording complete. You can listen, crop the section, then generate the pendant.';
         };
 
@@ -192,6 +199,9 @@
         startBtn.disabled = true;
         stopBtn.disabled = false;
         playBtn.disabled = true;
+        playbackInput.disabled = true;
+        playbackInput.value = 0;
+        updatePlaybackReadout(0);
         generateBtn.disabled = true;
         downloadBtn.disabled = true;
         statusEl.textContent = 'Recording... you should see the waveform moving.';
@@ -206,22 +216,55 @@
     };
 
     playBtn.onclick = () => {
-      if (!recordedAudioUrl) return;
+      if (!recordedAudioUrl || !audioBuffer) return;
 
       if (playbackAudio && !playbackAudio.paused) {
-        playbackAudio.pause();
-        playbackAudio.currentTime = 0;
-        playBtn.textContent = 'Play Recording';
+        stopPlayback();
         return;
       }
 
       playbackAudio = new Audio(recordedAudioUrl);
-      playbackAudio.onended = () => {
-        playBtn.textContent = 'Play Recording';
-      };
+      playbackAudio.currentTime = getPlaybackStartTime();
+
+      playbackAudio.onended = () => stopPlayback(false);
       playbackAudio.play();
       playBtn.textContent = 'Stop Playback';
+
+      playbackTimer = setInterval(() => {
+        if (!playbackAudio || !audioBuffer) return;
+        const percent = playbackAudio.currentTime / audioBuffer.duration;
+        playbackInput.value = Math.min(1000, Math.max(0, percent * 1000));
+        updatePlaybackReadout(playbackAudio.currentTime);
+      }, 80);
     };
+
+    playbackInput.addEventListener('input', () => {
+      if (!audioBuffer) return;
+      const time = getPlaybackStartTime();
+      updatePlaybackReadout(time);
+      if (playbackAudio) playbackAudio.currentTime = time;
+    });
+
+    function getPlaybackStartTime() {
+      if (!audioBuffer) return 0;
+      return (Number(playbackInput.value) / 1000) * audioBuffer.duration;
+    }
+
+    function updatePlaybackReadout(currentTime) {
+      const total = audioBuffer ? audioBuffer.duration : 0;
+      playbackReadout.textContent = `Playback: ${currentTime.toFixed(1)}s / ${total.toFixed(1)}s`;
+    }
+
+    function stopPlayback(resetButton = true) {
+      if (playbackAudio) {
+        playbackAudio.pause();
+        playbackAudio = null;
+      }
+      clearInterval(playbackTimer);
+      playbackTimer = null;
+      if (resetButton) playBtn.textContent = 'Play Recording';
+      else playBtn.textContent = 'Play Recording';
+    }
 
     generateBtn.onclick = () => {
       if (!audioBuffer) return;
@@ -242,7 +285,7 @@
       link.click();
     };
 
-    [heightInput, radiusInput, detailInput, ringInput].forEach(el => {
+    [heightInput, radiusInput, detailInput].forEach(el => {
       el.addEventListener('input', () => {
         if (audioBuffer) buildVoicePendant(getCroppedAudioBuffer(audioBuffer));
         else buildDefaultPendant();
@@ -411,7 +454,7 @@
 
       const height = Number(heightInput.value);
       const voiceWidth = Number(radiusInput.value);
-      const ringStrength = Number(ringInput.value);
+      const ringStrength = 9;
       const material = new THREE.MeshStandardMaterial({ color: 0xd7d7d7, metalness: 0.72, roughness: 0.22 });
 
       currentObject.add(createVoiceDrivenLathe(waveform, height, voiceWidth, ringStrength, material));
