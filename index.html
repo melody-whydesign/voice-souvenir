@@ -114,50 +114,68 @@ function vaseGeometry(){
   const h=Number(heightSlider.value);
   const max=Number(widthSlider.value)/2;
   const wall=Number(thicknessSlider.value);
-  const desiredDisc=Number(discSlider.value);
-  const maxLayers=Number(detailSlider.value);
-  const layerCount=Math.max(10,Math.min(maxLayers,Math.round(h/desiredDisc)));
-  const layerHeight=h/layerCount;
-  const amps=resampleAmps(getSelectedAmplitudes(),layerCount);
-  const rad=128;
+  const amps=getSelectedAmplitudes();
+  const rings=Math.max(40,Number(detailSlider.value));
+  const rad=160;
   const verts=[];
   const idx=[];
+  const yb=-h/2;
 
-  for(let i=0;i<layerCount;i++){
-    const amp=amps[i];
-    const t=i/(layerCount-1);
-    const vaseProfile=.58+.28*Math.sin(Math.PI*t)+.16*Math.pow(t,1.6);
-    const rOut=Math.max(max*.35,Math.min(max*1.35,max*vaseProfile*(.55+amp*1.25)));
+  for(let i=0;i<=rings;i++){
+    const t=i/rings;
+    const y=yb+t*h;
+    const amp=amps[Math.min(amps.length-1,Math.floor(t*(amps.length-1)))]||0.35;
+
+    // A real vase profile: foot, rounded belly, shoulder, narrow neck, open lip.
+    const foot=.16*Math.exp(-Math.pow((t-.08)/.07,2));
+    const belly=.62*Math.exp(-Math.pow((t-.38)/.24,2));
+    const shoulder=.24*Math.exp(-Math.pow((t-.66)/.13,2));
+    const neckCut=-.18*Math.exp(-Math.pow((t-.82)/.12,2));
+    const lip=.20*Math.exp(-Math.pow((t-.97)/.05,2));
+    const silhouette=.34+foot+belly+shoulder+neckCut+lip;
+
+    // Voice affects only the OUTER surface as ridges, keeping the vase continuous.
+    const voiceRidge=state.audioBuffer?(amp-.35)*max*.32:0;
+    const fineRidge=state.audioBuffer?Math.sin(t*Math.PI*rings*1.15)*Number(discSlider.value)*.18:0;
+    const rOut=Math.max(max*.24,Math.min(max*1.28,max*silhouette+voiceRidge+fineRidge));
     const rIn=Math.max(2,rOut-wall);
-    const y0=-h/2+i*layerHeight;
-    const y1=y0+layerHeight*.92;
-    const base=verts.length/3;
 
-    // outer bottom, outer top, inner bottom, inner top
-    for(const y of [y0,y1]){
-      for(let j=0;j<rad;j++){
-        const a=j/rad*Math.PI*2;
-        verts.push(Math.cos(a)*rOut,y,Math.sin(a)*rOut);
-      }
+    for(let j=0;j<rad;j++){
+      const a=j/rad*Math.PI*2;
+      verts.push(Math.cos(a)*rOut,y,Math.sin(a)*rOut);
     }
-    for(const y of [y0,y1]){
-      for(let j=0;j<rad;j++){
-        const a=j/rad*Math.PI*2;
-        verts.push(Math.cos(a)*rIn,y,Math.sin(a)*rIn);
-      }
+    for(let j=0;j<rad;j++){
+      const a=j/rad*Math.PI*2;
+      verts.push(Math.cos(a)*rIn,y,Math.sin(a)*rIn);
     }
+  }
 
-    const ob=base, ot=base+rad, ib=base+rad*2, it=base+rad*3;
+  for(let i=0;i<rings;i++){
+    const row=i*rad*2;
+    const next=(i+1)*rad*2;
     for(let j=0;j<rad;j++){
       const j2=(j+1)%rad;
-      idx.push(ob+j,ot+j,ob+j2, ob+j2,ot+j,ot+j2);       // outer wall
-      idx.push(ib+j2,it+j,ib+j, ib+j2,it+j2,it+j);       // inner wall
-      idx.push(ot+j,ot+j2,it+j, ot+j2,it+j2,it+j);       // visible top lip for each disc
-      if(i===0){
-        idx.push(ob+j2,ob+j,ib+j);
-        idx.push(ob+j2,ib+j,ib+j2);                       // closed base, no bottom hole
-      }
+      const o1=row+j,o2=row+j2,o3=next+j,o4=next+j2;
+      const in1=row+rad+j,in2=row+rad+j2,in3=next+rad+j,in4=next+rad+j2;
+      idx.push(o1,o3,o2,o2,o3,o4);       // continuous outer wall
+      idx.push(in2,in3,in1,in2,in4,in3); // continuous inner wall
     }
+  }
+
+  // Open top: rim only, no cap across opening.
+  const top=rings*rad*2;
+  for(let j=0;j<rad;j++){
+    const j2=(j+1)%rad;
+    idx.push(top+j,top+j2,top+rad+j);
+    idx.push(top+j2,top+rad+j2,top+rad+j);
+  }
+
+  // Closed bottom: full solid base disk.
+  const bottomCenter=verts.length/3;
+  verts.push(0,yb,0);
+  for(let j=0;j<rad;j++){
+    const j2=(j+1)%rad;
+    idx.push(bottomCenter,j2,j);
   }
 
   const g=new THREE.BufferGeometry();
