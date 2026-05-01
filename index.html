@@ -63,9 +63,78 @@ function switchMode(mode){state.mode=mode;pendantModeBtn.classList.toggle('activ
 function resetAll(){state.audio.pause();Object.assign(state,{audioBlob:null,audioBuffer:null,waveformData:[],liveData:[],cropStart:0,cropEnd:0,duration:0});timer.textContent='00:00';cropStartEl.textContent='0.00s';cropEndEl.textContent='0.00s';playbackBar.value=0;playbackBar.max=0;playbackBar.disabled=true;playbackTime.textContent='0.00s / 0.00s';playBtn.disabled=true;generateBtn.disabled=true;downloadBtn.disabled=true;selectAllBtn.disabled=true;heightSlider.value=70;widthSlider.value=32;detailSlider.value=64;thicknessSlider.value=2.4;updateLabelsAndPreview();drawWaveform();generateObject(false)}resetBtn.onclick=resetAll;
 colourSwatches.forEach(btn=>btn.onclick=()=>{state.colour=btn.dataset.colour;colourSwatches.forEach(s=>s.classList.toggle('active',s===btn));const labels={black:'Black',silver:'Starry silver',gold:'Bright gold',rose:'Rose gold'};colourValue.textContent=labels[state.colour];generateObject(false)});
 function productMaterial(){const p={black:{color:0xd6dde2,metalness:.98,roughness:.14,clearcoat:1},silver:{color:0x2c2c2e,metalness:.55,roughness:.32,clearcoat:.9},gold:{color:0xf2c94c,metalness:.98,roughness:.18,clearcoat:1},rose:{color:0xe6a193,metalness:.96,roughness:.2,clearcoat:1}}[state.colour]||{};return new THREE.MeshPhysicalMaterial({...p,clearcoatRoughness:.04,reflectivity:1})}
-function pendantGeometry(){const h=Number(heightSlider.value),max=Number(widthSlider.value)/2,amps=getSelectedAmplitudes(),seg=amps.length*1.8|0,rad=140,verts=[],idx=[],yb=-h/2;for(let i=0;i<=seg;i++){const t=i/seg,y=yb+t*h,amp=amps[Math.min(amps.length-1,Math.floor(i/1.8))]||.1,sil=Math.pow(Math.sin(Math.PI*t),.28),rip=1+amp*1.8,lobe=.85+.35*Math.sin(t*Math.PI*10);let r=max*(0.35+amp*1.4)*sil; r=Math.max(1.2,Math.min(max*1.4,r));if(i===0||i===seg)r=1.2;for(let j=0;j<rad;j++){const a=j/rad*Math.PI*2;verts.push(Math.cos(a)*r,y,Math.sin(a)*r)}}for(let i=0;i<seg;i++)for(let j=0;j<rad;j++){const a=i*rad+j,b=i*rad+(j+1)%rad,c=(i+1)*rad+j,d=(i+1)*rad+(j+1)%rad;idx.push(a,c,b,b,c,d)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setIndex(idx);g.computeVertexNormals();return g}
+function pendantGeometry(){
+  const h = Number(heightSlider.value);
+  const max = Number(widthSlider.value)/2;
+  const amps = getSelectedAmplitudes();
+  const seg = amps.length;
+  const verts=[]; const idx=[];
+
+  let yStart = -h/2;
+  const layerHeight = h / seg;
+
+  for(let i=0;i<seg;i++){
+    const amp = amps[i];
+    const radius = max * (0.35 + amp * 1.4);
+
+    const geo = new THREE.CylinderGeometry(radius, radius, layerHeight, 64);
+    geo.translate(0, yStart + layerHeight/2 + i*layerHeight, 0);
+
+    geo.computeVertexNormals();
+
+    const baseIndex = verts.length/3;
+    const pos = geo.attributes.position.array;
+    for(let v of pos) verts.push(v);
+
+    const ind = geo.index.array;
+    for(let j=0;j<ind.length;j++) idx.push(ind[j]+baseIndex);
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts,3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
 function makeLoopAndConnector(h){const group=new THREE.Group(),mat=productMaterial(),y=h/2,bail=new THREE.Mesh(new THREE.TorusGeometry(7.2,1.55,28,120),mat);bail.scale.set(.68,1.42,1);bail.position.y=y+22.5;group.add(bail);const ring=new THREE.Mesh(new THREE.TorusGeometry(4.8,1.15,24,96),mat);ring.position.y=y+10.8;group.add(ring);const neck=new THREE.Mesh(new THREE.CylinderGeometry(2.5,4.8,7.2,64),mat);neck.position.y=y+3.4;group.add(neck);return group}
-function vaseGeometry(){const h=Number(heightSlider.value),max=Number(widthSlider.value)/2,th=Number(thicknessSlider.value),amps=getSelectedAmplitudes(),seg=amps.length*1.8|0,rad=160,verts=[],idx=[],yb=-h/2;for(let i=0;i<=seg;i++){const t=i/seg,y=yb+t*h,amp=amps[Math.min(amps.length-1,Math.floor(i/1.8))]||.5,profile=.45+.38*Math.sin(Math.PI*t)+.34*Math.pow(t,1.7)+.12*Math.sin(Math.PI*4*t),rOut=Math.max(5,max*(0.42+amp*1.55)*profile),rIn=Math.max(rOut-th, state.mode==='vase' && t>.92 ? rOut-th*1.15 : 2);for(let j=0;j<rad;j++){const a=j/rad*Math.PI*2;verts.push(Math.cos(a)*rOut,y,Math.sin(a)*rOut)}for(let j=0;j<rad;j++){const a=j/rad*Math.PI*2;verts.push(Math.cos(a)*rIn,y,Math.sin(a)*rIn)}}for(let i=0;i<seg;i++){const row=i*rad*2,next=(i+1)*rad*2;for(let j=0;j<rad;j++){const j2=(j+1)%rad,o1=row+j,o2=row+j2,o3=next+j,o4=next+j2,in1=row+rad+j,in2=row+rad+j2,in3=next+rad+j,in4=next+rad+j2;idx.push(o1,o3,o2,o2,o3,o4);idx.push(in2,in3,in1,in2,in4,in3)}}const top=seg*rad*2;for(let j=0;j<rad;j++){const j2=(j+1)%rad;idx.push(top+j,top+j2,top+rad+j);idx.push(top+j2,top+rad+j2,top+rad+j)}const bottomCenter=verts.length/3;verts.push(0,yb,0);for(let j=0;j<rad;j++){const j2=(j+1)%rad;idx.push(bottomCenter,j,j2)}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));g.setIndex(idx);g.computeVertexNormals();return g}
+function vaseGeometry(){
+  const h = Number(heightSlider.value);
+  const max = Number(widthSlider.value)/2;
+  const th = Number(thicknessSlider.value);
+  const amps = getSelectedAmplitudes();
+  const seg = amps.length;
+
+  const verts=[]; const idx=[];
+  let yStart = -h/2;
+  const layerHeight = h / seg;
+
+  for(let i=0;i<seg;i++){
+    const amp = amps[i];
+    const rOut = max * (0.4 + amp * 1.6);
+    const rIn = Math.max(1, rOut - th);
+
+    const outer = new THREE.CylinderGeometry(rOut, rOut, layerHeight, 96,1,true);
+    const inner = new THREE.CylinderGeometry(rIn, rIn, layerHeight, 96,1,true);
+
+    outer.translate(0, yStart + layerHeight/2 + i*layerHeight, 0);
+    inner.translate(0, yStart + layerHeight/2 + i*layerHeight, 0);
+
+    const merge = THREE.BufferGeometryUtils.mergeBufferGeometries([outer, inner]);
+
+    const baseIndex = verts.length/3;
+    const pos = merge.attributes.position.array;
+    for(let v of pos) verts.push(v);
+
+    const ind = merge.index.array;
+    for(let j=0;j<ind.length;j++) idx.push(ind[j]+baseIndex);
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts,3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
 function generateObject(showLoading=true,preserveRotation=true){let prev=null;if(state.mesh&&preserveRotation)prev={x:state.mesh.rotation.x,y:state.mesh.rotation.y,z:state.mesh.rotation.z};if(showLoading)loading.style.display='grid';requestAnimationFrame(()=>{if(state.mesh)scene.remove(state.mesh);const h=Number(heightSlider.value),max=Number(widthSlider.value)/2,group=new THREE.Group();let geo=state.mode==='vase'?vaseGeometry():(state.audioBuffer?pendantGeometry():new THREE.CylinderGeometry(max*.72,max*.72,h,96,1));group.add(new THREE.Mesh(geo,productMaterial()));if(state.mode==='pendant'&&state.audioBuffer&&state.orientation==='vertical')group.add(makeLoopAndConnector(h));scene.add(group);state.mesh=group;applyOrientation();if(prev){state.mesh.rotation.x=prev.x;state.mesh.rotation.y=prev.y;if(preserveRotation)state.mesh.rotation.z=prev.z}state.stlText=groupToSTL(group,state.mode==='pendant'?'voice_pendant':'voice_vase');downloadBtn.disabled=false;stageBadge.textContent=`Drag to rotate 360° • ${capitalize(state.mode)}`;if(showLoading)setTimeout(()=>loading.style.display='none',250)})}
 function applyOrientation(){if(!state.mesh)return;if(state.mode==='vase'){state.mesh.rotation.z=0;return;}state.mesh.rotation.z=state.orientation==='horizontal'?Math.PI/2:0}
 const viewer=$('viewer');viewer.addEventListener('pointerdown',e=>{state.isPointerRotating=true;state.lastPointerX=e.clientX;state.lastPointerY=e.clientY;viewer.setPointerCapture(e.pointerId)});viewer.addEventListener('pointermove',e=>{if(!state.isPointerRotating||!state.mesh)return;state.mesh.rotation.y+=(e.clientX-state.lastPointerX)*.01;state.mesh.rotation.x+=(e.clientY-state.lastPointerY)*.01;state.lastPointerX=e.clientX;state.lastPointerY=e.clientY});viewer.addEventListener('pointerup',()=>state.isPointerRotating=false);
