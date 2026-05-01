@@ -71,7 +71,12 @@ function applyOrientation(){if(!state.mesh)return;if(state.mode==='vase'){state.
 const viewer=$('viewer');viewer.addEventListener('pointerdown',e=>{state.isPointerRotating=true;state.lastPointerX=e.clientX;state.lastPointerY=e.clientY;viewer.setPointerCapture(e.pointerId)});viewer.addEventListener('pointermove',e=>{if(!state.isPointerRotating||!state.mesh)return;state.mesh.rotation.y+=(e.clientX-state.lastPointerX)*.01;state.mesh.rotation.x+=(e.clientY-state.lastPointerY)*.01;state.lastPointerX=e.clientX;state.lastPointerY=e.clientY});viewer.addEventListener('pointerup',()=>state.isPointerRotating=false);
 function groupToSTL(group,name){group.updateMatrixWorld(true);let stl=`solid ${name}\n`;group.traverse(obj=>{if(!obj.isMesh)return;const geom=obj.geometry.clone();geom.applyMatrix4(obj.matrixWorld);const pos=geom.getAttribute('position'),ind=geom.index,n=new THREE.Vector3(),a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),faces=ind?ind.count/3:pos.count/3;for(let i=0;i<faces;i++){const ia=ind?ind.getX(i*3):i*3,ib=ind?ind.getX(i*3+1):i*3+1,ic=ind?ind.getX(i*3+2):i*3+2;a.fromBufferAttribute(pos,ia);b.fromBufferAttribute(pos,ib);c.fromBufferAttribute(pos,ic);n.crossVectors(new THREE.Vector3().subVectors(b,a),new THREE.Vector3().subVectors(c,a)).normalize();stl+=` facet normal ${n.x} ${n.y} ${n.z}\n  outer loop\n   vertex ${a.x} ${a.y} ${a.z}\n   vertex ${b.x} ${b.y} ${b.z}\n   vertex ${c.x} ${c.y} ${c.z}\n  endloop\n endfacet\n`}});return stl+`endsolid ${name}`}
 function downloadSTL(){if(!state.stlText)return;const blob=new Blob([state.stlText],{type:'model/stl'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=state.mode==='pendant'?'voice-pendant.stl':'voice-vase.stl';a.click();URL.revokeObjectURL(a.href)}generateBtn.onclick=()=>generateObject(true);downloadBtn.onclick=downloadSTL;
-function animate(){requestAnimationFrame(animate);if(state.mesh&&!state.isPointerRotating){state.mesh.rotation.y+=.0018;}renderer.render(scene,camera)}updateLabelsAndPreview();resizeRenderer();generateObject(false);animate();
+function animate(){requestAnimationFrame(animate);if(state.mesh&&!state.isPointerRotating){
+        // stop auto-rotation for horizontal pendant
+        if(!(state.mode==='pendant' && state.orientation==='horizontal')){
+          state.mesh.rotation.y += .0018;
+        }
+      }renderer.render(scene,camera)}updateLabelsAndPreview();resizeRenderer();generateObject(false);animate();
 </script>
 </body>
 </html>
